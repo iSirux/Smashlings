@@ -1,4 +1,5 @@
 import { Transform, Velocity } from '../../components/spatial'
+import { eventBus } from '../../core/EventBus'
 import { sceneManager } from '../../core/SceneManager'
 import {
   CAMERA_DISTANCE,
@@ -9,13 +10,41 @@ import {
 import { _v1, lerp } from '../../utils/math'
 import type { GameWorld } from '../../world'
 
+// ── Screen shake state ────────────────────────────────────────────────
+let shakeIntensity = 0
+let shakeDuration = 0
+let shakeTimer = 0
+
+/**
+ * Trigger a camera screen shake effect.
+ * @param intensity — maximum displacement in world units
+ * @param duration — how long the shake lasts in seconds
+ */
+export function triggerScreenShake(intensity: number, duration: number): void {
+  shakeIntensity = intensity
+  shakeDuration = duration
+  shakeTimer = duration
+}
+
+// ── Auto-shake on game events ─────────────────────────────────────────
+eventBus.on('entity:damaged', (data) => {
+  // Bigger shake for critical hits
+  if (data.isCrit) {
+    triggerScreenShake(0.3, 0.2)
+  }
+})
+
+eventBus.on('player:levelup', () => {
+  triggerScreenShake(0.2, 0.15)
+})
+
 /**
  * Follows the player entity with a smooth third-person camera.
  *
  * The desired camera position sits behind and above the player. A look-ahead
  * offset is applied in the player's horizontal movement direction so the
  * camera leads slightly ahead of the action. Position is smoothed via lerp
- * to avoid jarring snaps.
+ * to avoid jarring snaps. Supports screen shake for impacts and level-ups.
  */
 export function cameraSystem(world: GameWorld, dt: number): void {
   const camera = sceneManager.camera
@@ -49,6 +78,21 @@ export function cameraSystem(world: GameWorld, dt: number): void {
   camera.position.x = lerp(camera.position.x, desiredX, CAMERA_LERP)
   camera.position.y = lerp(camera.position.y, desiredY, CAMERA_LERP)
   camera.position.z = lerp(camera.position.z, desiredZ, CAMERA_LERP)
+
+  // ── Screen shake ────────────────────────────────────────────────────
+  if (shakeTimer > 0) {
+    shakeTimer -= dt || (1 / 60) // dt might be 0 in render calls
+    const t = shakeTimer / shakeDuration
+    const currentIntensity = shakeIntensity * t
+    camera.position.x += (Math.random() - 0.5) * currentIntensity
+    camera.position.y += (Math.random() - 0.5) * currentIntensity * 0.5
+    camera.position.z += (Math.random() - 0.5) * currentIntensity
+
+    if (shakeTimer <= 0) {
+      shakeTimer = 0
+      shakeIntensity = 0
+    }
+  }
 
   // ── Look at the player (with a slight Y offset for a better angle) ──
   _v1.set(px, py + 1.5, pz)

@@ -17,7 +17,13 @@ export interface GameWorld extends IWorld {
     xpToNext: number
     kills: number
     gold: number
+    /** Selected character id. */
+    characterId: string
+    /** Current weapon id. */
+    weaponId: string
   }
+  /** Items collected during the current run (item ids). */
+  items: string[]
   paused: boolean
 }
 
@@ -42,8 +48,11 @@ export function createGameWorld(): GameWorld {
     xpToNext: 10,
     kills: 0,
     gold: 0,
+    characterId: 'knight',
+    weaponId: 'sword',
   }
 
+  world.items = []
   world.paused = false
 
   return world

@@ -1,4 +1,6 @@
 import * as THREE from 'three'
+import { generateForestTerrain, getTerrainHeight, TerrainConfig } from '../world/MapGenerator'
+import { createForestFog } from '../world/Skybox'
 
 /**
  * Manages the Three.js scene, camera, renderer, and entity-to-mesh mappings.
@@ -8,6 +10,9 @@ class SceneManagerClass {
   scene!: THREE.Scene
   camera!: THREE.PerspectiveCamera
   renderer!: THREE.WebGLRenderer
+
+  // Procedural terrain mesh
+  terrain: THREE.Mesh | null = null
 
   // eid -> THREE.Object3D mapping
   private meshes: Map<number, THREE.Object3D> = new Map()
@@ -64,16 +69,31 @@ class SceneManagerClass {
     const ambientLight = new THREE.AmbientLight(0x404060, 0.5)
     this.scene.add(ambientLight)
 
-    // ── Ground Plane ───────────────────────────────────────────────────
-    const groundGeometry = new THREE.PlaneGeometry(200, 200)
-    const groundMaterial = new THREE.MeshStandardMaterial({ color: 0x2E7D32 })
-    const ground = new THREE.Mesh(groundGeometry, groundMaterial)
-    ground.rotation.x = -Math.PI / 2
-    ground.receiveShadow = true
-    this.scene.add(ground)
+    // ── Procedural Terrain ─────────────────────────────────────────────
+    const terrainConfig: TerrainConfig = {
+      width: 500,
+      depth: 500,
+      segments: 128,
+      maxHeight: 3,
+      color: 0x2E7D32,
+    }
+    this.terrain = generateForestTerrain(terrainConfig)
+    this.scene.add(this.terrain)
+
+    // ── Fog ──────────────────────────────────────────────────────────────
+    this.scene.fog = createForestFog()
 
     // ── Window resize handler ──────────────────────────────────────────
     window.addEventListener('resize', this.onResize)
+  }
+
+  /**
+   * Get the terrain height at a given world (x, z) position.
+   * Returns 0 if no terrain is loaded.
+   */
+  getTerrainHeight(x: number, z: number): number {
+    if (!this.terrain) return 0
+    return getTerrainHeight(this.terrain, x, z)
   }
 
   /**

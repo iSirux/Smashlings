@@ -1,6 +1,7 @@
 import { defineQuery, hasComponent, addComponent } from 'bitecs'
 import { IsProjectile, IsEnemy, IsPlayer, DestroyFlag } from '../../components/tags'
 import { DamageOnContact, Health, Invincible } from '../../components/combat'
+import { PlayerStats } from '../../components/stats'
 import { Transform, Velocity } from '../../components/spatial'
 import { distanceSq } from '../../utils/math'
 import { eventBus } from '../../core/EventBus'
@@ -55,13 +56,48 @@ export function damageSystem(world: GameWorld, dt: number): void {
         // Calculate armor reduction: reduction = armor / (armor + 100)
         const armor = Health.armor[eid]
         const reduction = armor / (armor + 100)
-        const rawDamage = DamageOnContact.amount[pid]
+        let rawDamage = DamageOnContact.amount[pid]
+
+        // Apply player damage multiplier from PlayerStats
+        const playerEid = world.player.eid
+        const hasStats = playerEid >= 0 && hasComponent(world, PlayerStats, playerEid)
+        const damageMult = hasStats ? PlayerStats.damageMult[playerEid] : 1.0
+        rawDamage *= (damageMult > 0 ? damageMult : 1.0)
+
+        // Roll for crit
+        let isCrit = false
+        if (hasStats) {
+          const critChance = PlayerStats.critChance[playerEid]
+          if (critChance > 0 && Math.random() < critChance) {
+            isCrit = true
+            const critDamage = PlayerStats.critDamage[playerEid]
+            rawDamage *= (critDamage > 0 ? critDamage : 2.0)
+          }
+        }
+
         const finalDamage = rawDamage * (1 - reduction)
 
         Health.current[eid] -= finalDamage
 
+        // Lifesteal: heal player by damage * lifesteal
+        if (hasStats) {
+          const lifesteal = PlayerStats.lifesteal[playerEid]
+          if (lifesteal > 0) {
+            Health.current[playerEid] = Math.min(
+              Health.max[playerEid],
+              Health.current[playerEid] + finalDamage * lifesteal,
+            )
+          }
+        }
+
         // Knockback: push enemy away from projectile source
-        const knockbackForce = DamageOnContact.knockback[pid]
+        let knockbackForce = DamageOnContact.knockback[pid]
+        if (hasStats) {
+          const knockbackMult = PlayerStats.knockbackMult[playerEid]
+          if (knockbackMult > 0) {
+            knockbackForce *= knockbackMult
+          }
+        }
         if (knockbackForce > 0 && dSq > 0.0001) {
           const dx = ex - px
           const dz2 = ez - pz
@@ -79,7 +115,7 @@ export function damageSystem(world: GameWorld, dt: number): void {
           x: ex,
           y: Transform.y[eid],
           z: ez,
-          isCrit: false,
+          isCrit,
         })
 
         // Track pierce
@@ -100,6 +136,8 @@ export function damageSystem(world: GameWorld, dt: number): void {
   // Skip if player is invincible
   if (hasComponent(world, Invincible, playerId)) return
 
+  const playerHasStats = hasComponent(world, PlayerStats, playerId)
+
   const plx = Transform.x[playerId]
   const plz = Transform.z[playerId]
 
@@ -115,12 +153,32 @@ export function damageSystem(world: GameWorld, dt: number): void {
     const dSq = distanceSq(plx, plz, ex, ez)
 
     if (dSq < ENEMY_CONTACT_SQ) {
+      // Check evasion: player dodges the hit entirely
+      if (playerHasStats) {
+        const evasion = PlayerStats.evasion[playerId]
+        if (evasion > 0 && Math.random() < evasion) {
+          // Grant invincibility frames even on evasion to prevent rapid re-checks
+          addComponent(world, Invincible, playerId)
+          Invincible.timer[playerId] = PLAYER_INVINCIBILITY_TIME
+          break
+        }
+      }
+
       const armor = Health.armor[playerId]
       const reduction = armor / (armor + 100)
       const rawDamage = DamageOnContact.amount[eid]
       const finalDamage = rawDamage * (1 - reduction)
 
       Health.current[playerId] -= finalDamage
+
+      // Thorns: reflect a percentage of raw damage back to the enemy
+      if (playerHasStats) {
+        const thorns = PlayerStats.thorns[playerId]
+        if (thorns > 0) {
+          const thornsDamage = rawDamage * thorns
+          Health.current[eid] -= thornsDamage
+        }
+      }
 
       // Grant invincibility frames
       addComponent(world, Invincible, playerId)

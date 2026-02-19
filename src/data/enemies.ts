@@ -9,6 +9,8 @@ export interface EnemyDef {
   meshColor: number // hex color
   meshScale: [number, number, number]
   isBoss?: boolean
+  isMiniBoss?: boolean
+  goldDrop?: number // guaranteed gold drop amount
 }
 
 export const ENEMIES: EnemyDef[] = [
@@ -55,6 +57,81 @@ export const ENEMIES: EnemyDef[] = [
     spawnWeight: 5,
     meshColor: 0x8D6E63,
     meshScale: [0.5, 0.4, 0.8],
+  },
+  // ── New regular enemies ────────────────────────────────────────────────
+  {
+    id: 'mushroom',
+    name: 'Mushroom',
+    health: 25,
+    speed: 1.5,
+    damage: 8,
+    xpValue: 5,
+    spawnWeight: 3,
+    meshColor: 0x8D6E63,
+    meshScale: [0.5, 0.6, 0.5],
+  },
+  {
+    id: 'ghost',
+    name: 'Ghost',
+    health: 30,
+    speed: 3.0,
+    damage: 10,
+    xpValue: 6,
+    spawnWeight: 2,
+    meshColor: 0xB0BEC5,
+    meshScale: [0.5, 0.7, 0.5],
+  },
+  {
+    id: 'tree_ent',
+    name: 'Tree Ent',
+    health: 60,
+    speed: 1.0,
+    damage: 15,
+    xpValue: 12,
+    spawnWeight: 1,
+    meshColor: 0x795548,
+    meshScale: [1.2, 1.6, 1.2],
+  },
+  // ── Mini-bosses ────────────────────────────────────────────────────────
+  {
+    id: 'stone_golem',
+    name: 'Stone Golem',
+    health: 500,
+    speed: 1.5,
+    damage: 20,
+    xpValue: 100,
+    spawnWeight: 0,
+    meshColor: 0xFF7043,
+    meshScale: [1.5, 1.5, 1.5],
+    isMiniBoss: true,
+    goldDrop: 20,
+  },
+  {
+    id: 'chunkham',
+    name: 'Chunkham',
+    health: 400,
+    speed: 3.0,
+    damage: 15,
+    xpValue: 80,
+    spawnWeight: 0,
+    meshColor: 0xFF5722,
+    meshScale: [1.3, 1.3, 1.3],
+    isMiniBoss: true,
+    goldDrop: 20,
+  },
+  // ── Bosses ─────────────────────────────────────────────────────────────
+  {
+    id: 'lil_bark',
+    name: 'Lil Bark',
+    health: 2000,
+    speed: 0.5,
+    damage: 25,
+    xpValue: 500,
+    spawnWeight: 0,
+    meshColor: 0xAB47BC,
+    meshScale: [3.0, 3.0, 3.0],
+    isBoss: true,
+    goldDrop: 50,
   },
 ]
 

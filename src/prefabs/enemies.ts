@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { addEntity, addComponent } from 'bitecs'
 import { Transform, Velocity, initTransform } from '../components/spatial'
-import { IsEnemy } from '../components/tags'
+import { IsEnemy, IsBoss } from '../components/tags'
 import { Health, DamageOnContact } from '../components/combat'
 import { AIFollow } from '../components/movement'
 import { EnemyType } from '../components/lifecycle'
@@ -27,6 +27,10 @@ export function createEnemy(world: GameWorld, enemyIndex: number, x: number, z: 
   // ── Tags ─────────────────────────────────────────────────────────────
   addComponent(world, IsEnemy, eid)
 
+  if (def.isBoss) {
+    addComponent(world, IsBoss, eid)
+  }
+
   // ── Health ───────────────────────────────────────────────────────────
   addComponent(world, Health, eid)
   Health.current[eid] = def.health
@@ -50,12 +54,34 @@ export function createEnemy(world: GameWorld, enemyIndex: number, x: number, z: 
   EnemyType.id[eid] = enemyIndex
 
   // ── Mesh ─────────────────────────────────────────────────────────────
-  const geometry = new THREE.BoxGeometry(
-    def.meshScale[0],
-    def.meshScale[1],
-    def.meshScale[2],
-  )
-  const material = new THREE.MeshStandardMaterial({ color: def.meshColor })
+  let geometry: THREE.BufferGeometry
+
+  if (def.isBoss) {
+    // Bosses use sphere geometry with strong emissive glow
+    const radius = Math.max(def.meshScale[0], def.meshScale[1], def.meshScale[2]) * 0.5
+    geometry = new THREE.SphereGeometry(radius, 16, 16)
+  } else if (def.isMiniBoss) {
+    // Mini-bosses use sphere geometry with moderate emissive glow
+    const radius = Math.max(def.meshScale[0], def.meshScale[1], def.meshScale[2]) * 0.5
+    geometry = new THREE.SphereGeometry(radius, 12, 12)
+  } else {
+    geometry = new THREE.BoxGeometry(
+      def.meshScale[0],
+      def.meshScale[1],
+      def.meshScale[2],
+    )
+  }
+
+  const materialOpts: THREE.MeshStandardMaterialParameters = { color: def.meshColor }
+  if (def.isBoss) {
+    materialOpts.emissive = def.meshColor
+    materialOpts.emissiveIntensity = 0.5
+  } else if (def.isMiniBoss) {
+    materialOpts.emissive = def.meshColor
+    materialOpts.emissiveIntensity = 0.3
+  }
+  const material = new THREE.MeshStandardMaterial(materialOpts)
+
   const mesh = new THREE.Mesh(geometry, material)
   mesh.castShadow = true
   mesh.position.set(x, def.meshScale[1] * 0.5, z)

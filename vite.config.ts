@@ -1,8 +1,8 @@
 import { defineConfig } from 'vite'
 
-export default defineConfig({
-  base: '/Smashlings/',
+export default defineConfig(({ command }) => ({
+  base: command === 'build' ? '/Smashlings/' : '/',
   build: {
     target: 'esnext',
   },
-})
+}))

@@ -8,6 +8,11 @@ export type GameEvents = {
   'pickup:collected': { eid: number; type: string; value: number }
   'wave:started': { waveNumber: number }
   'enemy:spawned': { eid: number }
+  'boss:spawned': { eid: number; bossId: string }
+  'boss:defeated': { eid: number }
+  'shrine:activated': { stat: string; value: number }
+  'item:collected': { itemId: string }
+  'swarm:started': Record<string, never>
   'game:start': Record<string, never>
   'game:pause': Record<string, never>
   'game:resume': Record<string, never>

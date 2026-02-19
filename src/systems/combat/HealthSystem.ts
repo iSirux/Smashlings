@@ -1,7 +1,7 @@
 import { defineQuery, hasComponent, addComponent } from 'bitecs'
 import { Health } from '../../components/combat'
 import { Transform } from '../../components/spatial'
-import { IsEnemy, IsPlayer, DestroyFlag } from '../../components/tags'
+import { IsEnemy, IsPlayer, IsBoss, DestroyFlag } from '../../components/tags'
 import { XPValue, EnemyType } from '../../components/lifecycle'
 import { createXPGem } from '../../prefabs/pickups'
 import { eventBus } from '../../core/EventBus'
@@ -32,17 +32,40 @@ export function healthSystem(world: GameWorld, dt: number): void {
     const z = Transform.z[eid]
 
     if (hasComponent(world, IsEnemy, eid)) {
-      // Determine XP drop amount from enemy definition
+      // Determine XP drop amount and gold from enemy definition
       let xpAmount = 5
+      let goldAmount = 0
+      let isBossOrMiniBoss = false
+
       if (hasComponent(world, EnemyType, eid)) {
         const enemyIdx = EnemyType.id[eid]
         if (enemyIdx < ENEMIES.length) {
-          xpAmount = ENEMIES[enemyIdx].xpValue
+          const def = ENEMIES[enemyIdx]
+          xpAmount = def.xpValue
+
+          // Gold drops
+          if (def.isBoss) {
+            goldAmount = def.goldDrop ?? 50
+            isBossOrMiniBoss = true
+          } else if (def.isMiniBoss) {
+            goldAmount = def.goldDrop ?? 20
+            isBossOrMiniBoss = true
+          } else {
+            // Regular enemies: 20% chance to drop 1 gold
+            if (Math.random() < 0.2) {
+              goldAmount = 1
+            }
+          }
         }
       }
 
       // Spawn XP gem at enemy position
       createXPGem(world, x, y, z, xpAmount)
+
+      // Award gold directly
+      if (goldAmount > 0) {
+        world.player.gold += goldAmount
+      }
 
       world.player.kills++
 

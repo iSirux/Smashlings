@@ -1,5 +1,6 @@
 import type { GameWorld } from '../world'
 import { Health } from '../components/combat'
+import { WEAPONS } from '../data/weapons'
 
 // ---- Color palette ----------------------------------------------------------
 const COL_BG = '#1A1A2E'
@@ -50,6 +51,7 @@ export class HUD {
   private timerText: HTMLElement
   private killsText: HTMLElement
   private goldText: HTMLElement
+  private weaponText: HTMLElement
 
   constructor() {
     // Root container – covers the entire viewport, pointer-events pass through
@@ -200,6 +202,25 @@ export class HUD {
     bottomLeft.appendChild(this.goldText)
     this.container.appendChild(bottomLeft)
 
+    // ---- Bottom-right panel (Weapon) --------------------------------------
+    const bottomRight = el('div', {
+      position: 'absolute',
+      bottom: '16px',
+      right: '16px',
+      ...panelStyle(),
+      textAlign: 'right',
+    })
+
+    this.weaponText = el('div', {
+      fontSize: '15px',
+      fontWeight: '600',
+      letterSpacing: '0.02em',
+      color: COL_ACCENT,
+    }, 'Sword')
+    bottomRight.appendChild(this.weaponText)
+
+    this.container.appendChild(bottomRight)
+
     // Mount
     document.body.appendChild(this.container)
   }
@@ -232,6 +253,12 @@ export class HUD {
     // Kills & Gold
     this.killsText.textContent = `Kills: ${player.kills}`
     this.goldText.textContent = `Gold: ${player.gold}`
+
+    // Weapon
+    const weaponDef = WEAPONS[player.weaponId]
+    if (weaponDef) {
+      this.weaponText.textContent = weaponDef.name
+    }
   }
 
   destroy(): void {

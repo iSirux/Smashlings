@@ -9,9 +9,10 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@dimforge/rapier3d": "^0.14.0",
     "bitecs": "^0.3.40",
     "three": "^0.170.0",
-    "@dimforge/rapier3d": "^0.14.0"
+    "tone": "^15.1.22"
   },
   "devDependencies": {
     "@types/three": "^0.170.0",
