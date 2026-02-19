@@ -42,6 +42,7 @@ export const Invincible = defineComponent({
 export const ChainLightning = defineComponent({
   chainsRemaining: Types.ui8,
   chainRange: Types.f32,
+  sourceEid: Types.ui32,
 })
 
 /** Enemy melee attack state machine: 0=idle, 1=windup, 2=lunge, 3=cooldown */

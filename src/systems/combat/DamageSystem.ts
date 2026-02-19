@@ -57,6 +57,9 @@ export function damageSystem(world: GameWorld, dt: number): void {
       const ex = Transform.x[eid]
       const ez = Transform.z[eid]
 
+      // Skip the enemy this chain bolt originated from
+      if (hasComponent(world, ChainLightning, pid) && ChainLightning.sourceEid[pid] === eid) continue
+
       const dSq = distanceSq(px, pz, ex, ez)
 
       if (dSq < PROJECTILE_HIT_SQ) {
@@ -180,7 +183,7 @@ export function damageSystem(world: GameWorld, dt: number): void {
             const cdist = Math.sqrt(cdx * cdx + cdz * cdz)
             if (cdist > 0.001) {
               createLightningBolt(world, ex, Transform.y[eid] + 0.5, ez, cdx / cdist, cdz / cdist,
-                DamageOnContact.amount[pid], DamageOnContact.knockback[pid], chains)
+                DamageOnContact.amount[pid], DamageOnContact.knockback[pid], chains, eid)
             }
           }
         }

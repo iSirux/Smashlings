@@ -204,6 +204,7 @@ export function createLightningBolt(
   dirX: number, dirZ: number,
   damage: number, knockback: number,
   chainsRemaining = 3,
+  sourceEid = 0,
 ): number {
   const eid = addEntity(world)
   const speed = 20
@@ -215,6 +216,7 @@ export function createLightningBolt(
   addComponent(world, ChainLightning, eid)
   ChainLightning.chainsRemaining[eid] = chainsRemaining
   ChainLightning.chainRange[eid] = 8.0
+  ChainLightning.sourceEid[eid] = sourceEid
 
   const mesh = new THREE.Mesh(medSphereGeo, lightningMat)
   mesh.position.set(x, y, z)
