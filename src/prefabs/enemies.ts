@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { addEntity, addComponent } from 'bitecs'
-import { Transform, Velocity, initTransform } from '../components/spatial'
+import { Transform, Velocity, Collider, initTransform } from '../components/spatial'
 import { IsEnemy, IsBoss } from '../components/tags'
 import { Health, DamageOnContact } from '../components/combat'
 import { AIFollow } from '../components/movement'
@@ -20,9 +20,15 @@ export function createEnemy(world: GameWorld, enemyIndex: number, x: number, z: 
 
   // ── Spatial ──────────────────────────────────────────────────────────
   addComponent(world, Transform, eid)
-  initTransform(eid, x, def.meshScale[1] * 0.5, z)
+  const halfH = def.meshScale[1] * 0.5
+  const enemyTerrainY = sceneManager.getTerrainHeight(x, z)
+  initTransform(eid, x, enemyTerrainY + halfH, z)
 
   addComponent(world, Velocity, eid)
+
+  addComponent(world, Collider, eid)
+  Collider.radius[eid] = Math.max(def.meshScale[0], def.meshScale[2]) * 0.5
+  Collider.halfHeight[eid] = halfH
 
   // ── Tags ─────────────────────────────────────────────────────────────
   addComponent(world, IsEnemy, eid)
@@ -84,7 +90,7 @@ export function createEnemy(world: GameWorld, enemyIndex: number, x: number, z: 
 
   const mesh = new THREE.Mesh(geometry, material)
   mesh.castShadow = true
-  mesh.position.set(x, def.meshScale[1] * 0.5, z)
+  mesh.position.set(x, enemyTerrainY + halfH, z)
   sceneManager.addMesh(eid, mesh)
 
   return eid

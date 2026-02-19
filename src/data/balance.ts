@@ -20,6 +20,17 @@ export const BASE_SPAWN_INTERVAL = 2.0 // seconds between spawns at start
 export const MIN_SPAWN_INTERVAL = 0.3
 export const SPAWN_SCALING = 0.95 // multiplier per wave
 
+// ── Slot System ─────────────────────────────────────────────────────────────
+export const INITIAL_WEAPON_SLOTS = 2
+export const INITIAL_TOME_SLOTS = 2
+export const MAX_WEAPON_LEVEL = 40
+export const MAX_TOME_LEVEL = 99
+export const WEAPON_DAMAGE_PER_LEVEL = 0.08      // +8% base damage per level
+export const WEAPON_PROJ_MILESTONE = 5            // +1 projectile every 5 levels
+export const WEAPON_COOLDOWN_MILESTONE = 10       // -5% cooldown every 10 levels
+export const WEAPON_COOLDOWN_REDUCTION = 0.05
+export const LEVELUP_CHOICE_COUNT = 3
+
 // ── Combat ───────────────────────────────────────────────────────────────────
 export const CONTACT_DAMAGE_COOLDOWN = 0.5
 export const XP_MAGNET_RANGE = 3
@@ -34,3 +45,7 @@ export const CAMERA_DISTANCE = 15
 export const CAMERA_HEIGHT = 10
 export const CAMERA_LERP = 0.08
 export const CAMERA_LOOK_AHEAD = 3
+export const CAMERA_MOUSE_SENSITIVITY = 0.002
+export const CAMERA_MIN_PITCH = -0.5     // ~-30 degrees, looking up
+export const CAMERA_MAX_PITCH = 1.2      // ~70 degrees, looking down
+export const CAMERA_INITIAL_PITCH = 0.6  // ~35 degrees, similar to current angle

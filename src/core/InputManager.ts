@@ -28,11 +28,28 @@ class InputManager {
   // Normalized XZ movement direction (updated each frame via update())
   readonly moveDirection = new THREE.Vector2()
 
+  // Mouse delta accumulators (reset each frame)
+  mouseX = 0
+  mouseY = 0
+  private _pointerLocked = false
+
+  get isPointerLocked(): boolean {
+    return this._pointerLocked
+  }
+
   constructor() {
     window.addEventListener('keydown', this.onKeyDown)
     window.addEventListener('keyup', this.onKeyUp)
     // Prevent stuck keys when the window loses focus
     window.addEventListener('blur', this.onBlur)
+
+    // Mouse input
+    document.addEventListener('mousemove', this.onMouseMove)
+    document.addEventListener('pointerlockchange', this.onPointerLockChange)
+  }
+
+  requestPointerLock(canvas: HTMLCanvasElement): void {
+    canvas.requestPointerLock()
   }
 
   // ── Axis helper ──────────────────────────────────────────────────────
@@ -69,6 +86,8 @@ class InputManager {
   resetEdgeTriggers(): void {
     this.jumpPressed = false
     this.dashPressed = false
+    this.mouseX = 0
+    this.mouseY = 0
   }
 
   // ── Internals ────────────────────────────────────────────────────────
@@ -108,6 +127,17 @@ class InputManager {
     this.held.delete(e.code)
   }
 
+  private onMouseMove = (e: MouseEvent): void => {
+    if (this._pointerLocked) {
+      this.mouseX += e.movementX
+      this.mouseY += e.movementY
+    }
+  }
+
+  private onPointerLockChange = (): void => {
+    this._pointerLocked = document.pointerLockElement !== null
+  }
+
   private onBlur = (): void => {
     this.held.clear()
   }
@@ -124,6 +154,8 @@ class InputManager {
     window.removeEventListener('keydown', this.onKeyDown)
     window.removeEventListener('keyup', this.onKeyUp)
     window.removeEventListener('blur', this.onBlur)
+    document.removeEventListener('mousemove', this.onMouseMove)
+    document.removeEventListener('pointerlockchange', this.onPointerLockChange)
   }
 }
 

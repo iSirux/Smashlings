@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { addEntity, addComponent } from 'bitecs'
-import { Transform, initTransform } from '../components/spatial'
+import { Transform, Collider, initTransform } from '../components/spatial'
 import { IsShrine, IsChest, Interactable } from '../components/upgrades'
 import { sceneManager } from '../core/SceneManager'
 import type { GameWorld } from '../world'
@@ -15,10 +15,16 @@ export function createShrine(world: GameWorld, x: number, z: number): number {
 
   // ── Spatial ──────────────────────────────────────────────────────────
   addComponent(world, Transform, eid)
-  initTransform(eid, x, 0.75, z)  // y = half of cylinder height
+  const shrineTerrainY = sceneManager.getTerrainHeight(x, z)
+  initTransform(eid, x, shrineTerrainY + 0.75, z)  // y = terrain + half of cylinder height
 
   // ── Tags ─────────────────────────────────────────────────────────────
   addComponent(world, IsShrine, eid)
+
+  // ── Collider ──────────────────────────────────────────────────────────
+  addComponent(world, Collider, eid)
+  Collider.radius[eid] = 0.5
+  Collider.halfHeight[eid] = 0.75
 
   // ── Interactable ────────────────────────────────────────────────────
   addComponent(world, Interactable, eid)
@@ -35,7 +41,7 @@ export function createShrine(world: GameWorld, x: number, z: number): number {
     emissiveIntensity: 0.3,
   })
   const mesh = new THREE.Mesh(geometry, material)
-  mesh.position.set(x, 0.75, z)
+  mesh.position.set(x, shrineTerrainY + 0.75, z)
   mesh.castShadow = true
   mesh.receiveShadow = true
   sceneManager.addMesh(eid, mesh)
@@ -53,10 +59,16 @@ export function createChest(world: GameWorld, x: number, z: number): number {
 
   // ── Spatial ──────────────────────────────────────────────────────────
   addComponent(world, Transform, eid)
-  initTransform(eid, x, 0.3, z)  // y = half of box height
+  const chestTerrainY = sceneManager.getTerrainHeight(x, z)
+  initTransform(eid, x, chestTerrainY + 0.3, z)  // y = terrain + half of box height
 
   // ── Tags ─────────────────────────────────────────────────────────────
   addComponent(world, IsChest, eid)
+
+  // ── Collider ──────────────────────────────────────────────────────────
+  addComponent(world, Collider, eid)
+  Collider.radius[eid] = 0.4
+  Collider.halfHeight[eid] = 0.3
 
   // ── Interactable ────────────────────────────────────────────────────
   addComponent(world, Interactable, eid)
@@ -73,7 +85,7 @@ export function createChest(world: GameWorld, x: number, z: number): number {
     emissiveIntensity: 0.2,
   })
   const mesh = new THREE.Mesh(geometry, material)
-  mesh.position.set(x, 0.3, z)
+  mesh.position.set(x, chestTerrainY + 0.3, z)
   mesh.castShadow = true
   mesh.receiveShadow = true
   sceneManager.addMesh(eid, mesh)

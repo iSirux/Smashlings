@@ -1,14 +1,27 @@
 import { Transform, Velocity } from '../../components/spatial'
 import { eventBus } from '../../core/EventBus'
+import { input } from '../../core/InputManager'
 import { sceneManager } from '../../core/SceneManager'
 import {
   CAMERA_DISTANCE,
-  CAMERA_HEIGHT,
   CAMERA_LERP,
   CAMERA_LOOK_AHEAD,
+  CAMERA_MOUSE_SENSITIVITY,
+  CAMERA_MIN_PITCH,
+  CAMERA_MAX_PITCH,
+  CAMERA_INITIAL_PITCH,
 } from '../../data/balance'
 import { _v1, lerp } from '../../utils/math'
 import type { GameWorld } from '../../world'
+
+// ── Orbital camera state ─────────────────────────────────────────────────
+let cameraYaw = 0
+let cameraPitch = CAMERA_INITIAL_PITCH
+
+/** Returns the current camera yaw for camera-relative movement. */
+export function getCameraYaw(): number {
+  return cameraYaw
+}
 
 // ── Screen shake state ────────────────────────────────────────────────
 let shakeIntensity = 0
@@ -28,7 +41,6 @@ export function triggerScreenShake(intensity: number, duration: number): void {
 
 // ── Auto-shake on game events ─────────────────────────────────────────
 eventBus.on('entity:damaged', (data) => {
-  // Bigger shake for critical hits
   if (data.isCrit) {
     triggerScreenShake(0.3, 0.2)
   }
@@ -39,12 +51,21 @@ eventBus.on('player:levelup', () => {
 })
 
 /**
- * Follows the player entity with a smooth third-person camera.
+ * Consume mouse deltas and update yaw/pitch. Must run in the fixed-step
+ * update loop BEFORE playerInputSystem so getCameraYaw() is fresh.
+ */
+export function cameraInputSystem(): void {
+  cameraYaw -= input.mouseX * CAMERA_MOUSE_SENSITIVITY
+  cameraPitch += input.mouseY * CAMERA_MOUSE_SENSITIVITY
+  cameraPitch = Math.max(CAMERA_MIN_PITCH, Math.min(CAMERA_MAX_PITCH, cameraPitch))
+}
+
+/**
+ * Orbiting third-person camera that follows the player.
  *
- * The desired camera position sits behind and above the player. A look-ahead
- * offset is applied in the player's horizontal movement direction so the
- * camera leads slightly ahead of the action. Position is smoothed via lerp
- * to avoid jarring snaps. Supports screen shake for impacts and level-ups.
+ * Positions the camera at a spherical offset from the player based on the
+ * current yaw/pitch (updated by cameraInputSystem). Smooth lerp following
+ * and look-ahead in the movement direction. Supports screen shake.
  */
 export function cameraSystem(world: GameWorld, dt: number): void {
   const camera = sceneManager.camera
@@ -69,19 +90,35 @@ export function cameraSystem(world: GameWorld, dt: number): void {
     lookAheadZ = (vz / hSpeed) * CAMERA_LOOK_AHEAD
   }
 
-  // ── Desired camera position (behind + above player) ─────────────────
-  const desiredX = px + lookAheadX
-  const desiredY = py + CAMERA_HEIGHT
-  const desiredZ = pz + CAMERA_DISTANCE + lookAheadZ
+  // ── Compute orbital offset from spherical coordinates ────────────────
+  const cosPitch = Math.cos(cameraPitch)
+  const sinPitch = Math.sin(cameraPitch)
+  const sinYaw = Math.sin(cameraYaw)
+  const cosYaw = Math.cos(cameraYaw)
+
+  const offsetX = CAMERA_DISTANCE * sinYaw * cosPitch
+  const offsetY = CAMERA_DISTANCE * sinPitch
+  const offsetZ = CAMERA_DISTANCE * cosYaw * cosPitch
+
+  // ── Desired camera position (orbital offset + look-ahead) ───────────
+  const desiredX = px + lookAheadX + offsetX
+  const desiredY = py + offsetY
+  const desiredZ = pz + lookAheadZ + offsetZ
 
   // ── Smooth interpolation ────────────────────────────────────────────
   camera.position.x = lerp(camera.position.x, desiredX, CAMERA_LERP)
   camera.position.y = lerp(camera.position.y, desiredY, CAMERA_LERP)
   camera.position.z = lerp(camera.position.z, desiredZ, CAMERA_LERP)
 
+  // ── Ground clamp — keep camera above terrain ───────────────────────
+  const groundY = sceneManager.getTerrainHeight(camera.position.x, camera.position.z) + 1.5
+  if (camera.position.y < groundY) {
+    camera.position.y = groundY
+  }
+
   // ── Screen shake ────────────────────────────────────────────────────
   if (shakeTimer > 0) {
-    shakeTimer -= dt || (1 / 60) // dt might be 0 in render calls
+    shakeTimer -= dt || (1 / 60)
     const t = shakeTimer / shakeDuration
     const currentIntensity = shakeIntensity * t
     camera.position.x += (Math.random() - 0.5) * currentIntensity

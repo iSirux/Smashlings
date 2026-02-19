@@ -171,15 +171,6 @@ export function damageSystem(world: GameWorld, dt: number): void {
 
       Health.current[playerId] -= finalDamage
 
-      // Thorns: reflect a percentage of raw damage back to the enemy
-      if (playerHasStats) {
-        const thorns = PlayerStats.thorns[playerId]
-        if (thorns > 0) {
-          const thornsDamage = rawDamage * thorns
-          Health.current[eid] -= thornsDamage
-        }
-      }
-
       // Grant invincibility frames
       addComponent(world, Invincible, playerId)
       Invincible.timer[playerId] = PLAYER_INVINCIBILITY_TIME

@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { addEntity, addComponent } from 'bitecs'
-import { Transform, initTransform } from '../components/spatial'
+import { Transform, Collider, initTransform } from '../components/spatial'
 import { sceneManager } from '../core/SceneManager'
 import type { GameWorld } from '../world'
 
@@ -18,7 +18,13 @@ export function createBossPortal(world: GameWorld, x: number, z: number): number
 
   // ── Spatial ──────────────────────────────────────────────────────────
   addComponent(world, Transform, eid)
-  initTransform(eid, x, 1.5, z) // y = half height of cylinder
+  const terrainY = sceneManager.getTerrainHeight(x, z)
+  initTransform(eid, x, terrainY + 1.5, z) // y = terrain + half height of cylinder
+
+  // ── Collider ──────────────────────────────────────────────────────────
+  addComponent(world, Collider, eid)
+  Collider.radius[eid] = 1.0
+  Collider.halfHeight[eid] = 1.5
 
   // ── Mesh ─────────────────────────────────────────────────────────────
   const geometry = new THREE.CylinderGeometry(1, 1, 3, 16)
@@ -30,7 +36,7 @@ export function createBossPortal(world: GameWorld, x: number, z: number): number
     opacity: 0.7,
   })
   const mesh = new THREE.Mesh(geometry, material)
-  mesh.position.set(x, 1.5, z)
+  mesh.position.set(x, terrainY + 1.5, z)
   sceneManager.addMesh(eid, mesh)
 
   portalEid = eid

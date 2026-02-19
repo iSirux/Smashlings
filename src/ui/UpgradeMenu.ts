@@ -1,10 +1,25 @@
+import type { LevelUpChoice } from '../main'
 import type { TomeDef } from '../data/tomes'
+import { WEAPONS } from '../data/weapons'
+import { TOMES } from '../data/tomes'
+import { AutoAttack } from '../components/combat'
+import {
+  MAX_WEAPON_LEVEL,
+  MAX_TOME_LEVEL,
+  WEAPON_DAMAGE_PER_LEVEL,
+  WEAPON_PROJ_MILESTONE,
+  WEAPON_COOLDOWN_MILESTONE,
+  WEAPON_COOLDOWN_REDUCTION,
+} from '../data/balance'
 
 // ---- Color palette ----------------------------------------------------------
 const COL_BG = '#1A1A2E'
 const COL_TEXT = '#E0E0E0'
 const COL_ACCENT = '#29B6F6'
 const COL_GOLD = '#FFD54F'
+const COL_WEAPON = '#FF9800'
+const COL_NEW = '#66BB6A'
+const COL_TOME = '#CE93D8'
 
 // ---- Keyframe injection (once) ----------------------------------------------
 let stylesInjected = false
@@ -46,11 +61,8 @@ function el<K extends keyof HTMLElementTagNameMap>(
   return e
 }
 
-function formatStat(tome: TomeDef): string {
-  if (tome.isPercent) {
-    return `+${(tome.perLevel * 100).toFixed(0)}% ${tome.stat} per level`
-  }
-  return `+${tome.perLevel} ${tome.stat} per level`
+function hexToCSS(hex: number): string {
+  return '#' + hex.toString(16).padStart(6, '0')
 }
 
 // ---- UpgradeMenu ------------------------------------------------------------
@@ -61,7 +73,7 @@ export class UpgradeMenu {
   private title: HTMLElement
   private cards: HTMLElement[] = []
   private visible: boolean = false
-  private onSelect: ((tome: TomeDef) => void) | null = null
+  private onSelect: ((choice: LevelUpChoice) => void) | null = null
 
   constructor() {
     injectKeyframes()
@@ -107,7 +119,7 @@ export class UpgradeMenu {
     document.body.appendChild(this.overlay)
   }
 
-  show(choices: TomeDef[], onSelect: (tome: TomeDef) => void): void {
+  show(choices: LevelUpChoice[], onSelect: (choice: LevelUpChoice) => void): void {
     this.onSelect = onSelect
     this.visible = true
 
@@ -123,8 +135,8 @@ export class UpgradeMenu {
     this.title.style.animation = 'smash-levelup-bounce 0.6s ease-out forwards'
 
     // Build cards
-    choices.forEach((tome, index) => {
-      const card = this.createCard(tome, index)
+    choices.forEach((choice, index) => {
+      const card = this.createChoiceCard(choice, index)
       this.cardContainer.appendChild(card)
       this.cards.push(card)
     })
@@ -144,12 +156,21 @@ export class UpgradeMenu {
 
   // ---- Private helpers ----------------------------------------------------
 
-  private createCard(tome: TomeDef, index: number): HTMLElement {
+  private createChoiceCard(choice: LevelUpChoice, index: number): HTMLElement {
+    switch (choice.type) {
+      case 'weapon_upgrade': return this.createWeaponUpgradeCard(choice, index)
+      case 'new_weapon': return this.createNewWeaponCard(choice, index)
+      case 'tome_upgrade': return this.createTomeUpgradeCard(choice, index)
+      case 'new_tome': return this.createNewTomeCard(choice, index)
+    }
+  }
+
+  private makeBaseCard(borderColor: string, index: number): HTMLElement {
     const card = el('div', {
       width: '200px',
       height: '280px',
       background: `${COL_BG}ee`,
-      border: `1px solid ${COL_ACCENT}`,
+      border: `2px solid ${borderColor}`,
       borderRadius: '12px',
       display: 'flex',
       flexDirection: 'column',
@@ -162,27 +183,225 @@ export class UpgradeMenu {
       pointerEvents: 'auto',
       animation: `smash-card-enter 0.4s ease-out ${index * 0.1}s both`,
       boxShadow: `0 4px 20px rgba(0,0,0,0.4)`,
+      position: 'relative',
     })
 
-    // Icon area – a simple circle with the first letter
-    const icon = el('div', {
+    card.addEventListener('mouseenter', () => {
+      card.style.transform = 'scale(1.06)'
+      card.style.boxShadow = `0 0 24px ${borderColor}66, 0 8px 32px rgba(0,0,0,0.5)`
+    })
+    card.addEventListener('mouseleave', () => {
+      card.style.transform = 'scale(1)'
+      card.style.boxShadow = '0 4px 20px rgba(0,0,0,0.4)'
+    })
+
+    return card
+  }
+
+  private addNewBadge(card: HTMLElement): void {
+    const badge = el('div', {
+      position: 'absolute',
+      top: '8px',
+      right: '8px',
+      padding: '2px 8px',
+      background: COL_NEW,
+      borderRadius: '4px',
+      fontSize: '10px',
+      fontWeight: '800',
+      color: '#FFF',
+      letterSpacing: '0.05em',
+    }, 'NEW')
+    card.appendChild(badge)
+  }
+
+  private makeIcon(letter: string, color: string): HTMLElement {
+    return el('div', {
       width: '56px',
       height: '56px',
       borderRadius: '50%',
-      background: `linear-gradient(135deg, ${COL_ACCENT}44, ${COL_ACCENT}22)`,
-      border: `2px solid ${COL_ACCENT}88`,
+      background: `linear-gradient(135deg, ${color}44, ${color}22)`,
+      border: `2px solid ${color}88`,
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
       fontSize: '24px',
       fontWeight: '800',
-      color: COL_ACCENT,
+      color,
       marginBottom: '16px',
       flexShrink: '0',
-    }, tome.name.charAt(0).toUpperCase())
-    card.appendChild(icon)
+    }, letter)
+  }
 
-    // Name
+  private bindClick(card: HTMLElement, choice: LevelUpChoice): void {
+    card.addEventListener('click', () => {
+      if (this.onSelect) {
+        this.onSelect(choice)
+      }
+      this.hide()
+    })
+  }
+
+  // ── Weapon Upgrade Card ───────────────────────────────────────────────
+
+  private createWeaponUpgradeCard(choice: Extract<LevelUpChoice, { type: 'weapon_upgrade' }>, index: number): HTMLElement {
+    const weapon = WEAPONS[choice.weaponKey]
+    if (!weapon) return this.makeBaseCard(COL_WEAPON, index)
+
+    const weaponColor = hexToCSS(weapon.meshColor ?? 0xFF9800)
+    const card = this.makeBaseCard(weaponColor, index)
+
+    card.appendChild(this.makeIcon(weapon.name.charAt(0).toUpperCase(), weaponColor))
+
+    const name = el('div', {
+      fontSize: '17px',
+      fontWeight: '700',
+      color: '#FFFFFF',
+      textAlign: 'center',
+      marginBottom: '6px',
+      lineHeight: '1.25',
+    }, `Level Up ${weapon.name}`)
+    card.appendChild(name)
+
+    const levelInfo = el('div', {
+      fontSize: '14px',
+      fontWeight: '600',
+      color: weaponColor,
+      textAlign: 'center',
+      marginBottom: '10px',
+    }, `Lv ${choice.currentLevel} \u2192 Lv ${choice.currentLevel + 1}`)
+    card.appendChild(levelInfo)
+
+    // Show what improves
+    const nextLevel = choice.currentLevel + 1
+    let improveLine = `+${(WEAPON_DAMAGE_PER_LEVEL * 100).toFixed(0)}% damage`
+    if ((nextLevel - 1) % WEAPON_PROJ_MILESTONE === 0 && nextLevel > 1) {
+      improveLine += ', +1 projectile'
+    }
+    if ((nextLevel - 1) % WEAPON_COOLDOWN_MILESTONE === 0 && nextLevel > 1) {
+      improveLine += `, -${(WEAPON_COOLDOWN_REDUCTION * 100).toFixed(0)}% cooldown`
+    }
+
+    const stat = el('div', {
+      fontSize: '12px',
+      fontWeight: '600',
+      color: weaponColor,
+      textAlign: 'center',
+      padding: '4px 10px',
+      background: `${weaponColor}18`,
+      borderRadius: '4px',
+    }, improveLine)
+    card.appendChild(stat)
+
+    this.bindClick(card, choice)
+    return card
+  }
+
+  // ── New Weapon Card ───────────────────────────────────────────────────
+
+  private createNewWeaponCard(choice: Extract<LevelUpChoice, { type: 'new_weapon' }>, index: number): HTMLElement {
+    const weapon = WEAPONS[choice.weaponKey]
+    if (!weapon) return this.makeBaseCard(COL_NEW, index)
+
+    const card = this.makeBaseCard(COL_NEW, index)
+    this.addNewBadge(card)
+
+    const weaponColor = hexToCSS(weapon.meshColor ?? 0x66BB6A)
+    card.appendChild(this.makeIcon(weapon.name.charAt(0).toUpperCase(), weaponColor))
+
+    const name = el('div', {
+      fontSize: '17px',
+      fontWeight: '700',
+      color: '#FFFFFF',
+      textAlign: 'center',
+      marginBottom: '6px',
+      lineHeight: '1.25',
+    }, weapon.name)
+    card.appendChild(name)
+
+    const patterns = ['Nearest', 'Forward', 'Radial', 'Spread', 'Orbit', 'Aura', 'Trail', 'Homing']
+    const desc = el('div', {
+      fontSize: '13px',
+      fontWeight: '400',
+      color: '#B0B0B0',
+      textAlign: 'center',
+      lineHeight: '1.4',
+      marginBottom: '10px',
+    }, `${patterns[weapon.pattern] || '?'} pattern`)
+    card.appendChild(desc)
+
+    const stat = el('div', {
+      fontSize: '12px',
+      fontWeight: '600',
+      color: COL_NEW,
+      textAlign: 'center',
+      padding: '4px 10px',
+      background: `${COL_NEW}18`,
+      borderRadius: '4px',
+      lineHeight: '1.4',
+    }, `Dmg: ${weapon.damage}  |  CD: ${weapon.cooldown}s\nProj: ${weapon.projectileCount}`)
+    card.appendChild(stat)
+
+    this.bindClick(card, choice)
+    return card
+  }
+
+  // ── Tome Upgrade Card ─────────────────────────────────────────────────
+
+  private createTomeUpgradeCard(choice: Extract<LevelUpChoice, { type: 'tome_upgrade' }>, index: number): HTMLElement {
+    const tome = TOMES.find(t => t.id === choice.tomeId)
+    if (!tome) return this.makeBaseCard(COL_TOME, index)
+
+    const card = this.makeBaseCard(COL_TOME, index)
+
+    card.appendChild(this.makeIcon(tome.name.charAt(0).toUpperCase(), COL_TOME))
+
+    const name = el('div', {
+      fontSize: '17px',
+      fontWeight: '700',
+      color: '#FFFFFF',
+      textAlign: 'center',
+      marginBottom: '6px',
+      lineHeight: '1.25',
+    }, `Level Up ${tome.name}`)
+    card.appendChild(name)
+
+    const levelInfo = el('div', {
+      fontSize: '14px',
+      fontWeight: '600',
+      color: COL_TOME,
+      textAlign: 'center',
+      marginBottom: '10px',
+    }, `Lv ${choice.currentLevel} \u2192 Lv ${choice.currentLevel + 1}`)
+    card.appendChild(levelInfo)
+
+    const bonusText = tome.isPercent
+      ? `+${(tome.perLevel * 100).toFixed(0)}% ${tome.stat}`
+      : `+${tome.perLevel} ${tome.stat}`
+
+    const stat = el('div', {
+      fontSize: '12px',
+      fontWeight: '600',
+      color: COL_TOME,
+      textAlign: 'center',
+      padding: '4px 10px',
+      background: `${COL_TOME}18`,
+      borderRadius: '4px',
+    }, bonusText)
+    card.appendChild(stat)
+
+    this.bindClick(card, choice)
+    return card
+  }
+
+  // ── New Tome Card ─────────────────────────────────────────────────────
+
+  private createNewTomeCard(choice: Extract<LevelUpChoice, { type: 'new_tome' }>, index: number): HTMLElement {
+    const tome = choice.tome
+    const card = this.makeBaseCard(COL_TOME, index)
+    this.addNewBadge(card)
+
+    card.appendChild(this.makeIcon(tome.name.charAt(0).toUpperCase(), COL_TOME))
+
     const name = el('div', {
       fontSize: '17px',
       fontWeight: '700',
@@ -193,7 +412,6 @@ export class UpgradeMenu {
     }, tome.name)
     card.appendChild(name)
 
-    // Description
     const desc = el('div', {
       fontSize: '13px',
       fontWeight: '400',
@@ -204,38 +422,22 @@ export class UpgradeMenu {
     }, tome.description)
     card.appendChild(desc)
 
-    // Stat line
+    const statText = tome.isPercent
+      ? `+${(tome.perLevel * 100).toFixed(0)}% ${tome.stat} per level`
+      : `+${tome.perLevel} ${tome.stat} per level`
+
     const stat = el('div', {
       fontSize: '12px',
       fontWeight: '600',
-      color: COL_ACCENT,
+      color: COL_TOME,
       textAlign: 'center',
       padding: '4px 10px',
-      background: `${COL_ACCENT}18`,
+      background: `${COL_TOME}18`,
       borderRadius: '4px',
-    }, formatStat(tome))
+    }, statText)
     card.appendChild(stat)
 
-    // Hover effects
-    card.addEventListener('mouseenter', () => {
-      card.style.transform = 'scale(1.06)'
-      card.style.borderColor = COL_ACCENT
-      card.style.boxShadow = `0 0 24px ${COL_ACCENT}66, 0 8px 32px rgba(0,0,0,0.5)`
-    })
-    card.addEventListener('mouseleave', () => {
-      card.style.transform = 'scale(1)'
-      card.style.borderColor = COL_ACCENT
-      card.style.boxShadow = '0 4px 20px rgba(0,0,0,0.4)'
-    })
-
-    // Click
-    card.addEventListener('click', () => {
-      if (this.onSelect) {
-        this.onSelect(tome)
-      }
-      this.hide()
-    })
-
+    this.bindClick(card, choice)
     return card
   }
 }

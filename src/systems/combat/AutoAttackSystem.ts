@@ -1,7 +1,7 @@
 import { defineQuery } from 'bitecs'
-import { AutoAttack } from '../../components/combat'
+import { AutoAttack, WeaponSlot } from '../../components/combat'
 import { Transform } from '../../components/spatial'
-import { IsPlayer, IsEnemy } from '../../components/tags'
+import { IsEnemy } from '../../components/tags'
 import {
   createSwordSlash,
   createArrow,
@@ -19,7 +19,7 @@ import {
 import { distanceSq } from '../../utils/math'
 import type { GameWorld } from '../../world'
 
-const playerAttackQuery = defineQuery([AutoAttack, Transform, IsPlayer])
+const weaponQuery = defineQuery([AutoAttack, WeaponSlot])
 const enemyQuery = defineQuery([IsEnemy, Transform])
 
 // Weapon ID to projectile factory mapping
@@ -103,13 +103,15 @@ function findNearestEnemy(
 
 /**
  * Ticks auto-attack cooldowns and fires weapons when ready.
- * Handles all attack patterns and weapon types.
+ * Now queries weapon entities (AutoAttack + WeaponSlot) and reads
+ * position/rotation from the owner (player) entity.
  */
 export function autoAttackSystem(world: GameWorld, dt: number): void {
-  const entities = playerAttackQuery(world)
+  const entities = weaponQuery(world)
 
   for (let i = 0; i < entities.length; i++) {
     const eid = entities[i]
+    const ownerEid = WeaponSlot.ownerEid[eid]
 
     // Tick cooldown
     AutoAttack.cooldownTimer[eid] -= dt
@@ -125,9 +127,10 @@ export function autoAttackSystem(world: GameWorld, dt: number): void {
       const range = AutoAttack.range[eid]
       const projCount = AutoAttack.projectileCount[eid] || 1
 
-      const px = Transform.x[eid]
-      const py = Transform.y[eid] + 0.5
-      const pz = Transform.z[eid]
+      // Read position from owner entity
+      const px = Transform.x[ownerEid]
+      const py = Transform.y[ownerEid] + 0.5
+      const pz = Transform.z[ownerEid]
 
       if (pattern === 0) {
         // ── Pattern 0: Nearest ─────────────────────────────────────────
@@ -158,7 +161,7 @@ export function autoAttackSystem(world: GameWorld, dt: number): void {
 
       } else if (pattern === 1) {
         // ── Pattern 1: Forward ─────────────────────────────────────────
-        const rotY = Transform.rotY[eid]
+        const rotY = Transform.rotY[ownerEid]
         const dirX = Math.sin(rotY)
         const dirZ = Math.cos(rotY)
 
@@ -189,7 +192,7 @@ export function autoAttackSystem(world: GameWorld, dt: number): void {
 
       } else if (pattern === 3) {
         // ── Pattern 3: Forward Spread ──────────────────────────────────
-        const rotY = Transform.rotY[eid]
+        const rotY = Transform.rotY[ownerEid]
         const baseAngle = rotY
         // Default spread of 30 degrees, converted to radians
         const spreadRad = (30 * Math.PI) / 180

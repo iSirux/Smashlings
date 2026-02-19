@@ -18,6 +18,11 @@ export const Velocity = defineComponent({
   z: Types.f32,
 })
 
+export const Collider = defineComponent({
+  radius: Types.f32,     // XZ collision radius
+  halfHeight: Types.f32, // half the entity height (for terrain snapping)
+})
+
 /**
  * Initialise a Transform on the given entity with position and default
  * scale of (1, 1, 1). Rotation defaults to (0, 0, 0).

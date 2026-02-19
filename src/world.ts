@@ -1,4 +1,16 @@
 import { createWorld, IWorld } from 'bitecs'
+import { INITIAL_WEAPON_SLOTS, INITIAL_TOME_SLOTS } from './data/balance'
+
+export interface WeaponSlotData {
+  eid: number
+  weaponKey: string
+  level: number
+}
+
+export interface TomeSlotData {
+  id: string
+  level: number
+}
 
 export interface GameWorld extends IWorld {
   time: {
@@ -19,8 +31,14 @@ export interface GameWorld extends IWorld {
     gold: number
     /** Selected character id. */
     characterId: string
-    /** Current weapon id. */
+    /** Active weapon key (e.g. 'sword'). */
     weaponId: string
+    /** Weapon slots (null = empty). */
+    weaponSlots: Array<WeaponSlotData | null>
+    /** Tome slots (null = empty). */
+    tomeSlots: Array<TomeSlotData | null>
+    maxWeaponSlots: number
+    maxTomeSlots: number
   }
   /** Items collected during the current run (item ids). */
   items: string[]
@@ -50,6 +68,10 @@ export function createGameWorld(): GameWorld {
     gold: 0,
     characterId: 'knight',
     weaponId: 'sword',
+    weaponSlots: new Array(INITIAL_WEAPON_SLOTS).fill(null),
+    tomeSlots: new Array(INITIAL_TOME_SLOTS).fill(null),
+    maxWeaponSlots: INITIAL_WEAPON_SLOTS,
+    maxTomeSlots: INITIAL_TOME_SLOTS,
   }
 
   world.items = []

@@ -1,7 +1,8 @@
 import { defineQuery } from 'bitecs'
-import { Transform, Velocity } from '../../components/spatial'
+import { Transform, Velocity, Collider } from '../../components/spatial'
 import { AIFollow } from '../../components/movement'
 import { IsEnemy } from '../../components/tags'
+import { sceneManager } from '../../core/SceneManager'
 import type { GameWorld } from '../../world'
 
 const aiFollowQuery = defineQuery([AIFollow, Transform, Velocity, IsEnemy])
@@ -29,6 +30,7 @@ export function aiFollowSystem(world: GameWorld, dt: number): void {
       Velocity.x[eid] = 0
       Velocity.z[eid] = 0
       Velocity.y[eid] = 0
+      Transform.y[eid] = sceneManager.getTerrainHeight(Transform.x[eid], Transform.z[eid]) + Collider.halfHeight[eid]
       continue
     }
 
@@ -39,6 +41,9 @@ export function aiFollowSystem(world: GameWorld, dt: number): void {
     Velocity.x[eid] = (dx / dist) * speed
     Velocity.z[eid] = (dz / dist) * speed
     Velocity.y[eid] = 0
+
+    // Snap Y to terrain
+    Transform.y[eid] = sceneManager.getTerrainHeight(Transform.x[eid], Transform.z[eid]) + Collider.halfHeight[eid]
 
     // Face movement direction
     Transform.rotY[eid] = Math.atan2(dx, dz)

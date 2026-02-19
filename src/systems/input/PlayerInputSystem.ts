@@ -1,16 +1,14 @@
 import { defineQuery } from 'bitecs'
-import { Transform, Velocity } from '../../components/spatial'
+import { Transform, Velocity, Collider } from '../../components/spatial'
 import { PlayerControlled } from '../../components/movement'
 import { IsPlayer } from '../../components/tags'
 import { input } from '../../core/InputManager'
 import { sceneManager } from '../../core/SceneManager'
+import { getCameraYaw } from '../rendering/CameraSystem'
 import { GRAVITY } from '../../data/balance'
 import type { GameWorld } from '../../world'
 
 const playerQuery = defineQuery([PlayerControlled, Transform, Velocity, IsPlayer])
-
-/** Half capsule height + ground plane offset. Entity is grounded at or below this Y. */
-const GROUND_Y = 1.0
 
 /**
  * Reads keyboard input and drives the player entity's velocity, jumping,
@@ -27,14 +25,14 @@ export function playerInputSystem(world: GameWorld, dt: number): void {
     const rawZ = -input.moveDirection.y  // forward mapped to -Z (Three.js convention)
 
     // ── Camera-relative movement ──────────────────────────────────────
-    // We only rotate the input vector around the camera's Y rotation so
+    // We only rotate the input vector around the camera's yaw so
     // "forward" always means "away from the camera".
-    const camY = sceneManager.camera.rotation.y
+    const camY = getCameraYaw()
     const sinCam = Math.sin(camY)
     const cosCam = Math.cos(camY)
 
-    const moveX = rawX * cosCam - rawZ * sinCam
-    const moveZ = rawX * sinCam + rawZ * cosCam
+    const moveX =  rawX * cosCam + rawZ * sinCam
+    const moveZ = -rawX * sinCam + rawZ * cosCam
 
     const moveSpeed = PlayerControlled.moveSpeed[eid]
 
@@ -103,9 +101,10 @@ export function playerInputSystem(world: GameWorld, dt: number): void {
       Transform.rotY[eid] = Math.atan2(moveX, moveZ)
     }
 
-    // ── Ground check ──────────────────────────────────────────────────
-    if (Transform.y[eid] <= GROUND_Y) {
-      Transform.y[eid] = GROUND_Y
+    // ── Ground check (terrain-aware) ──────────────────────────────────
+    const groundY = sceneManager.getTerrainHeight(Transform.x[eid], Transform.z[eid]) + Collider.halfHeight[eid]
+    if (Transform.y[eid] <= groundY) {
+      Transform.y[eid] = groundY
       if (Velocity.y[eid] < 0) {
         Velocity.y[eid] = 0
       }

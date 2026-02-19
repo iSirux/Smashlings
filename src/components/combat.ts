@@ -20,6 +20,11 @@ export const AutoAttack = defineComponent({
   weaponId: Types.ui8,
 })
 
+export const WeaponSlot = defineComponent({
+  ownerEid: Types.ui32,   // player entity id
+  slotIndex: Types.ui8,   // 0-3
+})
+
 export const DamageOnContact = defineComponent({
   amount: Types.f32,
   knockback: Types.f32,
