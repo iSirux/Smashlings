@@ -18,6 +18,14 @@ import type { GameWorld } from '../../world'
 let cameraYaw = 0
 let cameraPitch = CAMERA_INITIAL_PITCH
 
+// Smoothed look-at target (absorbs discrete physics-tick jumps)
+let smoothTargetX = 0
+let smoothTargetY = 0
+let smoothTargetZ = 0
+let smoothTargetInit = false
+const TARGET_LERP = 0.15
+
+
 /** Returns the current camera yaw for camera-relative movement. */
 export function getCameraYaw(): number {
   return cameraYaw
@@ -71,10 +79,24 @@ export function cameraSystem(world: GameWorld, dt: number): void {
   const camera = sceneManager.camera
   const playerEid = world.player.eid
 
-  // ── Player position ─────────────────────────────────────────────────
-  const px = Transform.x[playerEid]
-  const py = Transform.y[playerEid]
-  const pz = Transform.z[playerEid]
+  // ── Smoothed player position (absorbs discrete physics-tick jumps) ──
+  const rawPx = Transform.x[playerEid]
+  const rawPy = Transform.y[playerEid]
+  const rawPz = Transform.z[playerEid]
+
+  if (!smoothTargetInit) {
+    smoothTargetX = rawPx
+    smoothTargetY = rawPy
+    smoothTargetZ = rawPz
+    smoothTargetInit = true
+  }
+  smoothTargetX = lerp(smoothTargetX, rawPx, TARGET_LERP)
+  smoothTargetY = lerp(smoothTargetY, rawPy, TARGET_LERP)
+  smoothTargetZ = lerp(smoothTargetZ, rawPz, TARGET_LERP)
+
+  const px = smoothTargetX
+  const py = smoothTargetY
+  const pz = smoothTargetZ
 
   // ── Look-ahead based on horizontal velocity ─────────────────────────
   const vx = Velocity.x[playerEid]
@@ -102,19 +124,19 @@ export function cameraSystem(world: GameWorld, dt: number): void {
 
   // ── Desired camera position (orbital offset + look-ahead) ───────────
   const desiredX = px + lookAheadX + offsetX
-  const desiredY = py + offsetY
+  let desiredY = py + offsetY
   const desiredZ = pz + lookAheadZ + offsetZ
+
+  // ── Ground clamp — keep desired position above terrain ─────────────
+  const groundY = sceneManager.getTerrainHeight(desiredX, desiredZ) + 1.5
+  if (desiredY < groundY) {
+    desiredY = groundY
+  }
 
   // ── Smooth interpolation ────────────────────────────────────────────
   camera.position.x = lerp(camera.position.x, desiredX, CAMERA_LERP)
   camera.position.y = lerp(camera.position.y, desiredY, CAMERA_LERP)
   camera.position.z = lerp(camera.position.z, desiredZ, CAMERA_LERP)
-
-  // ── Ground clamp — keep camera above terrain ───────────────────────
-  const groundY = sceneManager.getTerrainHeight(camera.position.x, camera.position.z) + 1.5
-  if (camera.position.y < groundY) {
-    camera.position.y = groundY
-  }
 
   // ── Screen shake ────────────────────────────────────────────────────
   if (shakeTimer > 0) {

@@ -397,6 +397,7 @@ async function main(): Promise<void> {
 
   // Level-up flow: pause, show mixed choices, apply selection, resume
   eventBus.on('player:levelup', (_data) => {
+    document.exitPointerLock()
     world.paused = true
     gameLoop.pause()
 
@@ -429,6 +430,7 @@ async function main(): Promise<void> {
 
   // Death flow: show the death screen with final stats
   eventBus.on('player:died', (data) => {
+    document.exitPointerLock()
     world.paused = true
     gameLoop.pause()
 

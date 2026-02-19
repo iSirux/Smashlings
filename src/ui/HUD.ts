@@ -307,7 +307,7 @@ export class HUD {
       textShadow: '0 1px 2px rgba(0,0,0,0.8)',
     })
 
-    // Cooldown overlay (only for weapons)
+    // Cooldown overlay (only for weapons) — clock-sweep using conic-gradient
     let cooldownOverlay: HTMLElement | null = null
     if (type === 'weapon') {
       cooldownOverlay = el('div', {
@@ -315,11 +315,11 @@ export class HUD {
         top: '0',
         left: '0',
         width: '100%',
-        height: '0%',
-        background: 'rgba(0, 0, 0, 0.55)',
+        height: '100%',
+        borderRadius: '6px',
         zIndex: '1',
-        transition: 'height 0.05s linear',
         pointerEvents: 'none',
+        background: 'transparent',
       })
       container.appendChild(cooldownOverlay)
     }
@@ -370,7 +370,7 @@ export class HUD {
       ui.iconText.textContent = '+'
       ui.iconText.style.color = '#666'
       ui.levelText.textContent = ''
-      if (ui.cooldownOverlay) ui.cooldownOverlay.style.height = '0%'
+      if (ui.cooldownOverlay) ui.cooldownOverlay.style.background = 'transparent'
       ui.tooltip.textContent = 'Empty weapon slot'
       return
     }
@@ -385,15 +385,16 @@ export class HUD {
     ui.iconText.style.color = color
     ui.levelText.textContent = `${slotData.level}`
 
-    // Cooldown overlay
+    // Cooldown overlay — clock sweep from 12 o'clock
     if (ui.cooldownOverlay) {
       const timer = AutoAttack.cooldownTimer[slotData.eid]
       const cd = AutoAttack.cooldown[slotData.eid]
       if (cd > 0 && timer > 0) {
-        const pct = Math.max(0, Math.min(100, (timer / cd) * 100))
-        ui.cooldownOverlay.style.height = `${pct}%`
+        const deg = Math.max(0, Math.min(360, (timer / cd) * 360))
+        ui.cooldownOverlay.style.background =
+          `conic-gradient(transparent ${360 - deg}deg, rgba(0,0,0,0.55) ${360 - deg}deg)`
       } else {
-        ui.cooldownOverlay.style.height = '0%'
+        ui.cooldownOverlay.style.background = 'transparent'
       }
     }
 

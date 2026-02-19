@@ -110,6 +110,13 @@ export function playerInputSystem(world: GameWorld, dt: number): void {
       }
       PlayerControlled.isGrounded[eid] = 1
       PlayerControlled.jumpsRemaining[eid] = PlayerControlled.maxJumps[eid]
+
+      // Pre-snap to predicted post-movement ground height so the player
+      // doesn't float for one frame on slopes then snap back (causes jitter).
+      const futureX = Transform.x[eid] + Velocity.x[eid] * dt
+      const futureZ = Transform.z[eid] + Velocity.z[eid] * dt
+      const futureGroundY = sceneManager.getTerrainHeight(futureX, futureZ) + Collider.halfHeight[eid]
+      Transform.y[eid] = futureGroundY
     } else {
       PlayerControlled.isGrounded[eid] = 0
     }

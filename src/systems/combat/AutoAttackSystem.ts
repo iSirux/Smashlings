@@ -117,9 +117,6 @@ export function autoAttackSystem(world: GameWorld, dt: number): void {
     AutoAttack.cooldownTimer[eid] -= dt
 
     if (AutoAttack.cooldownTimer[eid] <= 0) {
-      // Reset cooldown
-      AutoAttack.cooldownTimer[eid] = AutoAttack.cooldown[eid]
-
       const pattern = AutoAttack.pattern[eid]
       const damage = AutoAttack.damage[eid]
       const knockback = AutoAttack.knockback[eid]
@@ -132,12 +129,17 @@ export function autoAttackSystem(world: GameWorld, dt: number): void {
       const py = Transform.y[ownerEid] + 0.5
       const pz = Transform.z[ownerEid]
 
+      // Targeted patterns (0=nearest, 7=homing): skip if no enemy in range
+      // so the weapon stays ready and fires instantly when a target appears.
+      let fired = false
+
       if (pattern === 0) {
         // ── Pattern 0: Nearest ─────────────────────────────────────────
         const rangeSq = range * range
         const nearest = findNearestEnemy(world, px, pz, rangeSq)
 
         if (nearest.eid !== -1) {
+          fired = true
           const factory = directionalFactories[weaponId]
           if (factory) {
             const spawnDist = 1.0
@@ -161,6 +163,7 @@ export function autoAttackSystem(world: GameWorld, dt: number): void {
 
       } else if (pattern === 1) {
         // ── Pattern 1: Forward ─────────────────────────────────────────
+        fired = true
         const rotY = Transform.rotY[ownerEid]
         const dirX = Math.sin(rotY)
         const dirZ = Math.cos(rotY)
@@ -178,6 +181,7 @@ export function autoAttackSystem(world: GameWorld, dt: number): void {
 
       } else if (pattern === 2) {
         // ── Pattern 2: Radial ──────────────────────────────────────────
+        fired = true
         const factory = directionalFactories[weaponId]
         if (factory) {
           const angleStep = (Math.PI * 2) / projCount
@@ -192,6 +196,7 @@ export function autoAttackSystem(world: GameWorld, dt: number): void {
 
       } else if (pattern === 3) {
         // ── Pattern 3: Forward Spread ──────────────────────────────────
+        fired = true
         const rotY = Transform.rotY[ownerEid]
         const baseAngle = rotY
         // Default spread of 30 degrees, converted to radians
@@ -210,6 +215,7 @@ export function autoAttackSystem(world: GameWorld, dt: number): void {
 
       } else if (pattern === 5) {
         // ── Pattern 5: Aura ────────────────────────────────────────────
+        fired = true
         const factory = areaFactories[weaponId]
         if (factory) {
           factory(world, px, py - 0.3, pz, damage, range)
@@ -217,15 +223,16 @@ export function autoAttackSystem(world: GameWorld, dt: number): void {
 
       } else if (pattern === 6) {
         // ── Pattern 6: Trail ───────────────────────────────────────────
-        // Leave damage zone at player's current position
+        fired = true
         createFireTrail(world, px, 0.3, pz, damage)
 
       } else if (pattern === 7) {
-        // ── Pattern 7: Homing (use nearest targeting for now) ──────────
+        // ── Pattern 7: Homing ──────────────────────────────────────────
         const rangeSq = range * range
         const nearest = findNearestEnemy(world, px, pz, rangeSq)
 
         if (nearest.eid !== -1) {
+          fired = true
           const factory = directionalFactories[weaponId]
           if (factory) {
             const spawnDist = 1.0
@@ -234,6 +241,11 @@ export function autoAttackSystem(world: GameWorld, dt: number): void {
             factory(world, sx, py, sz, nearest.dirX, nearest.dirZ, damage, knockback)
           }
         }
+      }
+
+      // Only reset cooldown if the weapon actually fired
+      if (fired) {
+        AutoAttack.cooldownTimer[eid] = AutoAttack.cooldown[eid]
       }
     }
   }
