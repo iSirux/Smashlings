@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite'
 
 export default defineConfig({
-  base: '/smashlings/',
+  base: '/Smashlings/',
   build: {
     target: 'esnext',
   },
