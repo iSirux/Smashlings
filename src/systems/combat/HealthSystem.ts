@@ -1,9 +1,10 @@
 import { defineQuery, hasComponent, addComponent } from 'bitecs'
 import { Health } from '../../components/combat'
+import { PlayerStats } from '../../components/stats'
 import { Transform } from '../../components/spatial'
 import { IsEnemy, IsPlayer, IsBoss, DestroyFlag } from '../../components/tags'
 import { XPValue, EnemyType } from '../../components/lifecycle'
-import { createXPGem } from '../../prefabs/pickups'
+import { spawnXPDrop } from '../../prefabs/pickups'
 import { eventBus } from '../../core/EventBus'
 import { ENEMIES } from '../../data/enemies'
 import type { GameWorld } from '../../world'
@@ -59,12 +60,17 @@ export function healthSystem(world: GameWorld, dt: number): void {
         }
       }
 
-      // Spawn XP gem at enemy position
-      createXPGem(world, x, y, z, xpAmount)
+      // Spawn XP gems at enemy position (breaks into denomination tiers)
+      spawnXPDrop(world, x, y, z, xpAmount)
 
-      // Award gold directly
+      // Award gold directly (scaled by difficulty + cursed tome)
       if (goldAmount > 0) {
-        world.player.gold += goldAmount
+        const playerEid = world.player.eid
+        const cursed = (playerEid >= 0 && hasComponent(world, PlayerStats, playerEid))
+          ? PlayerStats.cursedMult[playerEid] : 0
+        const goldGain = (playerEid >= 0 && hasComponent(world, PlayerStats, playerEid))
+          ? PlayerStats.goldGain[playerEid] || 1.0 : 1.0
+        world.player.gold += Math.round(goldAmount * world.difficulty.goldMult * (1 + cursed) * goldGain)
       }
 
       world.player.kills++

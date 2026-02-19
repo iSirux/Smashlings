@@ -58,6 +58,8 @@ export interface DebugActions {
   healPlayer: () => void
   killAllEnemies: () => void
   toggleGodMode: () => void
+  unlockWeaponSlot: () => void
+  unlockTomeSlot: () => void
 }
 
 export class DebugPanel {
@@ -81,7 +83,7 @@ export class DebugPanel {
       backdropFilter: 'blur(4px)',
       border: `1px solid ${COL_ACCENT}44`,
       pointerEvents: 'none',
-      zIndex: '99',
+      zIndex: '999',
       fontFamily: 'monospace',
       fontSize: '11px',
       color: COL_DIM,
@@ -138,8 +140,19 @@ export class DebugPanel {
     })
     btnRow2.appendChild(this.godModeBtn)
 
+    const btnRow3 = el('div', {
+      display: 'flex',
+      gap: '4px',
+      flexWrap: 'wrap',
+      marginTop: '2px',
+    })
+
+    btnRow3.appendChild(makeBtn('+Wpn Slot', () => actions.unlockWeaponSlot()))
+    btnRow3.appendChild(makeBtn('+Tome Slot', () => actions.unlockTomeSlot()))
+
     this.container.appendChild(btnRow1)
     this.container.appendChild(btnRow2)
+    this.container.appendChild(btnRow3)
 
     document.body.appendChild(this.container)
   }

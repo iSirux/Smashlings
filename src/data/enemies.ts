@@ -1,3 +1,25 @@
+export interface MeleeConfig {
+  lungeRange: number
+  windupTime: number
+  lungeTime: number
+  cooldownTime: number
+  lungeSpeedMult: number
+}
+
+export interface RangedAttackConfig {
+  cooldown: number
+  damage: number
+  projectileSpeed: number
+  /** 0=straight, 1=homing, 2=aoe_cloud */
+  projectileType: number
+  minRange: number
+}
+
+export interface BossConfig {
+  /** HP ratio thresholds per phase (e.g. [0.75, 0.5, 0.25] for 3 phase transitions) */
+  phaseThresholds: number[]
+}
+
 export interface EnemyDef {
   id: string
   name: string
@@ -11,6 +33,14 @@ export interface EnemyDef {
   isBoss?: boolean
   isMiniBoss?: boolean
   goldDrop?: number // guaranteed gold drop amount
+  /** 0=direct(default), 1=orbit, 2=keepDistance */
+  aiBehavior?: number
+  preferredRange?: number
+  rangedAttack?: RangedAttackConfig
+  bossConfig?: BossConfig
+  /** If true, no melee EnemyAttack component is added */
+  noMelee?: boolean
+  meleeConfig?: MeleeConfig
 }
 
 export const ENEMIES: EnemyDef[] = [
@@ -46,6 +76,16 @@ export const ENEMIES: EnemyDef[] = [
     spawnWeight: 8,
     meshColor: 0xEF5350,
     meshScale: [0.3, 0.3, 0.3],
+    aiBehavior: 1, // orbit
+    preferredRange: 8,
+    noMelee: true,
+    rangedAttack: {
+      cooldown: 2.0,
+      damage: 4,
+      projectileSpeed: 10,
+      projectileType: 0, // straight
+      minRange: 0,
+    },
   },
   {
     id: 'wolf',
@@ -69,6 +109,16 @@ export const ENEMIES: EnemyDef[] = [
     spawnWeight: 3,
     meshColor: 0x8D6E63,
     meshScale: [0.5, 0.6, 0.5],
+    aiBehavior: 2, // keepDistance
+    preferredRange: 4,
+    noMelee: true,
+    rangedAttack: {
+      cooldown: 3.5,
+      damage: 6,
+      projectileSpeed: 0,
+      projectileType: 2, // aoe_cloud
+      minRange: 0,
+    },
   },
   {
     id: 'ghost',
@@ -80,6 +130,16 @@ export const ENEMIES: EnemyDef[] = [
     spawnWeight: 2,
     meshColor: 0xB0BEC5,
     meshScale: [0.5, 0.7, 0.5],
+    aiBehavior: 2, // keepDistance
+    preferredRange: 10,
+    noMelee: true,
+    rangedAttack: {
+      cooldown: 3.0,
+      damage: 8,
+      projectileSpeed: 8,
+      projectileType: 1, // homing
+      minRange: 0,
+    },
   },
   {
     id: 'tree_ent',
@@ -105,6 +165,16 @@ export const ENEMIES: EnemyDef[] = [
     meshScale: [1.5, 1.5, 1.5],
     isMiniBoss: true,
     goldDrop: 20,
+    rangedAttack: {
+      cooldown: 2.5,
+      damage: 15,
+      projectileSpeed: 12,
+      projectileType: 0, // straight (boulder)
+      minRange: 8,
+    },
+    bossConfig: {
+      phaseThresholds: [0.5],
+    },
   },
   {
     id: 'chunkham',
@@ -118,6 +188,16 @@ export const ENEMIES: EnemyDef[] = [
     meshScale: [1.3, 1.3, 1.3],
     isMiniBoss: true,
     goldDrop: 20,
+    meleeConfig: {
+      lungeRange: 8,
+      windupTime: 0.5,
+      lungeTime: 0.4,
+      cooldownTime: 0.5,
+      lungeSpeedMult: 5.0,
+    },
+    bossConfig: {
+      phaseThresholds: [0.5],
+    },
   },
   // ── Bosses ─────────────────────────────────────────────────────────────
   {
@@ -132,6 +212,9 @@ export const ENEMIES: EnemyDef[] = [
     meshScale: [3.0, 3.0, 3.0],
     isBoss: true,
     goldDrop: 50,
+    bossConfig: {
+      phaseThresholds: [0.75, 0.5, 0.25],
+    },
   },
 ]
 

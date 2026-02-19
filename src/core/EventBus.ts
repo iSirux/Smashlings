@@ -10,8 +10,8 @@ export type GameEvents = {
   'enemy:spawned': { eid: number }
   'boss:spawned': { eid: number; bossId: string }
   'boss:defeated': { eid: number }
-  'shrine:activated': { stat: string; value: number }
-  'item:collected': { itemId: string }
+  'shrine:activated': { stat: string; value: number; label: string; x: number; y: number; z: number }
+  'item:collected': { itemId: string; name: string; rarity: string; x: number; y: number; z: number }
   'swarm:started': Record<string, never>
   'game:start': Record<string, never>
   'game:pause': Record<string, never>

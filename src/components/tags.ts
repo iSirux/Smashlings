@@ -18,5 +18,8 @@ export const IsPickup = defineComponent()
 /** Marks XP gem entities specifically. */
 export const IsXPGem = defineComponent()
 
+/** Marks projectiles fired by enemies (checked vs player, not enemies). */
+export const IsEnemyProjectile = defineComponent()
+
 /** Flag that tells the cleanup system to remove this entity at end of frame. */
 export const DestroyFlag = defineComponent()

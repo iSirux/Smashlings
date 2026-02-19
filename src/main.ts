@@ -19,6 +19,11 @@ import { entityCollisionSystem } from './systems/movement/EntityCollisionSystem'
 
 // Systems — Combat
 import { autoAttackSystem } from './systems/combat/AutoAttackSystem'
+import { boomerangSystem } from './systems/combat/BoomerangSystem'
+import { enemyAttackSystem } from './systems/combat/EnemyAttackSystem'
+import { enemyRangedAttackSystem } from './systems/combat/EnemyRangedAttackSystem'
+import { enemyHomingSystem } from './systems/combat/EnemyHomingSystem'
+import { bossPhaseSystem } from './systems/combat/BossPhaseSystem'
 import { damageSystem } from './systems/combat/DamageSystem'
 import { invincibilitySystem } from './systems/combat/InvincibilitySystem'
 import { healthSystem } from './systems/combat/HealthSystem'
@@ -71,9 +76,11 @@ import { HUD } from './ui/HUD'
 import { UpgradeMenu } from './ui/UpgradeMenu'
 import { DeathScreen } from './ui/DeathScreen'
 import { DamageNumbers } from './ui/DamageNumbers'
-import { CharacterSelect } from './ui/CharacterSelect'
+import { CharacterSelect, CharacterSelectResult } from './ui/CharacterSelect'
 import { QuestLog } from './ui/QuestLog'
+import { BossHealthBars } from './ui/BossHealthBars'
 import { DebugPanel } from './ui/DebugPanel'
+import { Minimap } from './ui/Minimap'
 
 // Data
 import { TOMES, TomeDef } from './data/tomes'
@@ -246,6 +253,18 @@ function applyTome(world: GameWorld, tome: TomeDef, tomeLevel: number): void {
     case 'projSpeed':
       PlayerStats.projSpeedMult[eid] = 1.0 + val * tomeLevel
       break
+    case 'pickupRange':
+      PlayerStats.pickupRange[eid] = 3.0 * (1.0 + val * tomeLevel)
+      break
+    case 'size':
+      PlayerStats.sizeMult[eid] = 1.0 + val * tomeLevel
+      break
+    case 'duration':
+      PlayerStats.durationMult[eid] = 1.0 + val * tomeLevel
+      break
+    case 'cursed':
+      PlayerStats.cursedMult[eid] = val * tomeLevel
+      break
   }
 }
 
@@ -330,23 +349,45 @@ async function main(): Promise<void> {
   // 4. Initialize quest system
   initQuestSystem()
 
-  // 5. Show character select screen
+  // 5. Show character select screen (includes difficulty + map toggles)
   const characterSelect = new CharacterSelect()
 
-  const selectedCharacter = await new Promise<CharacterDef>((resolve) => {
-    characterSelect.show((char) => {
+  const selection = await new Promise<CharacterSelectResult>((resolve) => {
+    characterSelect.show((result) => {
       characterSelect.hide()
-      resolve(char)
+      resolve(result)
     })
   })
+
+  const selectedCharacter = selection.character
 
   // 6. Create game world
   const world: GameWorld = createGameWorld()
   world.player.characterId = selectedCharacter.id
   world.player.weaponId = selectedCharacter.startingWeapon
+  world.difficulty = selection.difficulty
+  world.mapId = selection.mapId
+
+  // 6b. Apply selected map (swap terrain, sky, fog)
+  if (selection.mapId !== 'forest') {
+    sceneManager.setMap(selection.mapId)
+  }
 
   // 7. Create player with selected character (also creates starter weapon entity)
   createPlayer(world, 0, 0, selectedCharacter)
+
+  // 7b. Activate character passives at game start
+  {
+    const eid = world.player.eid
+    const passive = selectedCharacter.passive
+    if (passive.stat === 'flex') {
+      // Enable flex timer — starts counting immediately
+      PlayerStats.flexTimer[eid] = 3.0 // start with flex ready
+    } else if (passive.stat === 'speedDamage') {
+      // Speed Demon: base value at level 1
+      PlayerStats.speedDamageMult[eid] = passive.perLevel
+    }
+  }
 
   // 8. Spawn interactables (shrines, chests)
   spawnInteractables(world)
@@ -357,6 +398,8 @@ async function main(): Promise<void> {
   const deathScreen = new DeathScreen()
   const damageNumbers = new DamageNumbers()
   const questLog = new QuestLog()
+  const bossHealthBars = new BossHealthBars()
+  const minimap = new Minimap()
 
   // 9b. Debug panel
   const debugEnemyQuery = defineQuery([IsEnemy])
@@ -387,6 +430,20 @@ async function main(): Promise<void> {
     toggleGodMode() {
       godModeActive = !godModeActive
     },
+    unlockWeaponSlot() {
+      const max = world.player.maxWeaponSlots
+      if (max < 6) {
+        world.player.maxWeaponSlots = max + 1
+        world.player.weaponSlots.push(null)
+      }
+    },
+    unlockTomeSlot() {
+      const max = world.player.maxTomeSlots
+      if (max < 6) {
+        world.player.maxTomeSlots = max + 1
+        world.player.tomeSlots.push(null)
+      }
+    },
   })
 
   // 10. Create VFX managers
@@ -409,7 +466,7 @@ async function main(): Promise<void> {
 
       // Apply character passive (if any)
       const charDef = CHARACTERS.find(c => c.id === world.player.characterId)
-      if (charDef?.passive.perLevel) {
+      if (charDef) {
         const eid = world.player.eid
         const passiveStat = charDef.passive.stat
         const passiveVal = charDef.passive.perLevel * world.player.level
@@ -419,12 +476,15 @@ async function main(): Promise<void> {
         else if (passiveStat === 'attackSpeed') {
           PlayerStats.cooldownMult[eid] = Math.max(0.1, 1.0 - passiveVal)
           recomputeWeaponStats(world)
+        } else if (passiveStat === 'speedDamage') {
+          PlayerStats.speedDamageMult[eid] = charDef.passive.perLevel * world.player.level
         }
       }
 
       upgradeMenu.hide()
       world.paused = false
       gameLoop.resume()
+      input.requestPointerLock(canvas)
     })
   })
 
@@ -458,6 +518,37 @@ async function main(): Promise<void> {
     )
   })
 
+  // Shrine activation: show floating bonus text + recompute weapon stats
+  eventBus.on('shrine:activated', (data) => {
+    damageNumbers.spawnText(
+      data.x, data.y, data.z,
+      data.label,
+      '#80CBC4',
+      sceneManager.camera,
+      24,
+    )
+    recomputeWeaponStats(world)
+  })
+
+  // Chest pickup: show floating item name text
+  const rarityColors: Record<string, string> = {
+    common: '#B0BEC5',
+    uncommon: '#66BB6A',
+    rare: '#42A5F5',
+    epic: '#AB47BC',
+    legendary: '#FFD54F',
+  }
+  eventBus.on('item:collected', (data) => {
+    const color = rarityColors[data.rarity] || '#FFFFFF'
+    damageNumbers.spawnText(
+      data.x, data.y, data.z,
+      data.name,
+      color,
+      sceneManager.camera,
+      22,
+    )
+  })
+
   // 12. Update function (fixed timestep, called at 60 Hz)
   function update(dt: number): void {
     if (world.paused) return
@@ -472,7 +563,12 @@ async function main(): Promise<void> {
     aiFollowSystem(world, dt)
     movementSystem(world, dt)
     entityCollisionSystem(world, dt)
+    bossPhaseSystem(world, dt)
+    enemyAttackSystem(world, dt)
+    enemyRangedAttackSystem(world, dt)
     autoAttackSystem(world, dt)
+    boomerangSystem(world, dt)
+    enemyHomingSystem(world, dt)
     damageSystem(world, dt)
     invincibilitySystem(world, dt)
     healthSystem(world, dt)
@@ -509,6 +605,7 @@ async function main(): Promise<void> {
     cameraSystem(world, 0)
     flashSystem(world, world.time.delta)
     damageNumbers.update(world.time.delta)
+    bossHealthBars.update(world, sceneManager.camera)
 
     // Update particles
     const px = Transform.x[world.player.eid] || 0
@@ -518,6 +615,7 @@ async function main(): Promise<void> {
 
     destroyCleanupSystem(world, 0)
     hud.update(world)
+    minimap.update(world)
     debugPanel.update(world)
     sceneManager.render()
   }
@@ -525,8 +623,41 @@ async function main(): Promise<void> {
   // 14. Pointer lock on canvas click for camera control
   const canvas = sceneManager.renderer.domElement
   canvas.addEventListener('click', () => {
-    if (!input.isPointerLocked) {
+    if (!input.isPointerLocked && !world.paused) {
       input.requestPointerLock(canvas)
+    }
+  })
+
+  // 14b. ESC to pause / unpause
+  let manualPause = false
+
+  const pauseOverlay = document.createElement('div')
+  pauseOverlay.id = 'pause-overlay'
+  pauseOverlay.style.cssText =
+    'display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);' +
+    'z-index:900;align-items:center;justify-content:center;pointer-events:none;'
+  pauseOverlay.innerHTML = '<div style="color:#fff;font-family:sans-serif;font-size:48px;font-weight:bold;text-shadow:0 2px 8px #000;">PAUSED</div>'
+  document.body.appendChild(pauseOverlay)
+
+  window.addEventListener('keydown', (e) => {
+    if (e.code !== 'Escape') return
+
+    // Don't toggle if paused by level-up or death screen (not our manual pause)
+    if (world.paused && !manualPause) return
+
+    if (!manualPause) {
+      // Pause
+      manualPause = true
+      world.paused = true
+      gameLoop.pause()
+      document.exitPointerLock()
+      pauseOverlay.style.display = 'flex'
+    } else {
+      // Unpause
+      manualPause = false
+      world.paused = false
+      gameLoop.resume()
+      pauseOverlay.style.display = 'none'
     }
   })
 

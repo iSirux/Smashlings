@@ -2,7 +2,7 @@ import type { GameWorld, WeaponSlotData, TomeSlotData } from '../world'
 import { Health, AutoAttack } from '../components/combat'
 import { WEAPONS } from '../data/weapons'
 import { TOMES } from '../data/tomes'
-import { MAX_WEAPON_LEVEL, MAX_TOME_LEVEL, WEAPON_DAMAGE_PER_LEVEL, WEAPON_PROJ_MILESTONE, WEAPON_COOLDOWN_MILESTONE, WEAPON_COOLDOWN_REDUCTION } from '../data/balance'
+import { MAX_WEAPON_LEVEL, MAX_TOME_LEVEL, WEAPON_DAMAGE_PER_LEVEL, WEAPON_PROJ_MILESTONE, WEAPON_COOLDOWN_MILESTONE, WEAPON_COOLDOWN_REDUCTION, BASE_SPAWN_INTERVAL, MIN_SPAWN_INTERVAL } from '../data/balance'
 
 // ---- Color palette ----------------------------------------------------------
 const COL_BG = '#1A1A2E'
@@ -68,6 +68,7 @@ export class HUD {
   private timerText: HTMLElement
   private killsText: HTMLElement
   private goldText: HTMLElement
+  private intensityBarInner: HTMLElement
 
   // Slot bar
   private slotBarContainer: HTMLElement
@@ -83,7 +84,7 @@ export class HUD {
       width: '100vw',
       height: '100vh',
       pointerEvents: 'none',
-      zIndex: '100',
+      zIndex: '999',
       fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
       color: COL_TEXT,
       userSelect: 'none',
@@ -171,6 +172,42 @@ export class HUD {
     xpRow.appendChild(xpBarOuter)
     xpRow.appendChild(this.levelText)
     topLeft.appendChild(xpRow)
+
+    // Intensity row
+    const intensityRow = el('div', {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px',
+    })
+
+    const intensityBarOuter = el('div', {
+      width: '200px',
+      height: '8px',
+      background: '#00000066',
+      borderRadius: '3px',
+      overflow: 'hidden',
+      position: 'relative',
+    })
+
+    this.intensityBarInner = el('div', {
+      width: '0%',
+      height: '100%',
+      background: 'linear-gradient(90deg, #FF9800, #F44336)',
+      borderRadius: '3px',
+      transition: 'width 0.5s ease-out',
+    })
+    intensityBarOuter.appendChild(this.intensityBarInner)
+
+    const intensityLabel = el('span', {
+      fontSize: '11px',
+      fontWeight: '600',
+      color: '#FF9800',
+      whiteSpace: 'nowrap',
+    }, 'Intensity')
+
+    intensityRow.appendChild(intensityBarOuter)
+    intensityRow.appendChild(intensityLabel)
+    topLeft.appendChild(intensityRow)
 
     // ---- Kills + Gold (below XP in top-left panel) ------------------------
     const statsRow = el('div', {
@@ -279,7 +316,7 @@ export class HUD {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      overflow: 'hidden',
+      overflow: 'visible',
       border: '1px dashed #555',
       boxSizing: 'border-box',
       pointerEvents: 'auto',
@@ -482,6 +519,16 @@ export class HUD {
 
     // Timer
     this.timerText.textContent = formatTime(time.gameTimer)
+
+    // Intensity
+    const elapsed = time.elapsed
+    const decayFactor = 1 - Math.min(elapsed / 600, 0.8)
+    const spawnInterval = Math.max(MIN_SPAWN_INTERVAL, BASE_SPAWN_INTERVAL * decayFactor)
+    const batchSize = Math.min(8, Math.floor(1 + elapsed / 75))
+    const currentRate = batchSize / spawnInterval
+    const maxRate = 8 / MIN_SPAWN_INTERVAL
+    const intensityPct = Math.max(0, Math.min(100, (currentRate / maxRate) * 100))
+    this.intensityBarInner.style.width = `${intensityPct}%`
 
     // Kills & Gold
     this.killsText.textContent = `Kills: ${player.kills}`

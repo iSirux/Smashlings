@@ -104,6 +104,13 @@ export function createPlayer(world: GameWorld, x: number, z: number, character?:
   PlayerStats.knockbackMult[eid] = 1.0
   PlayerStats.projCountBonus[eid] = 0
   PlayerStats.projSpeedMult[eid] = 1.0
+  PlayerStats.sizeMult[eid] = 1.0
+  PlayerStats.durationMult[eid] = 1.0
+  PlayerStats.cursedMult[eid] = 0
+  PlayerStats.bossDamageMult[eid] = 0
+  PlayerStats.idleDamageMult[eid] = 0
+  PlayerStats.speedDamageMult[eid] = 0
+  PlayerStats.flexTimer[eid] = 0
 
   // ── Mesh ─────────────────────────────────────────────────────────────
   const geometry = new THREE.CapsuleGeometry(0.4, 1.0, 8, 16)

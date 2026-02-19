@@ -1,11 +1,23 @@
 import { CHARACTERS, CharacterDef } from '../data/characters'
 import { WEAPONS } from '../data/weapons'
+import { DIFFICULTY_TIERS, DifficultyTier } from '../data/difficulty'
 
 // ---- Color palette ----------------------------------------------------------
 const COL_BG = '#1A1A2E'
 const COL_TEXT = '#E0E0E0'
 const COL_ACCENT = '#29B6F6'
 const COL_GOLD = '#FFD54F'
+
+const MAP_OPTIONS = [
+  { id: 'forest', name: 'Forest', color: '#4CAF50' },
+  { id: 'desert', name: 'Desert', color: '#FF9800' },
+] as const
+
+export interface CharacterSelectResult {
+  character: CharacterDef
+  difficulty: DifficultyTier
+  mapId: string
+}
 
 // ---- Keyframe injection (once) ----------------------------------------------
 let stylesInjected = false
@@ -58,7 +70,9 @@ export class CharacterSelect {
   private cardContainer: HTMLElement
   private title: HTMLElement
   private visible = false
-  private onSelect: ((char: CharacterDef) => void) | null = null
+  private onSelect: ((result: CharacterSelectResult) => void) | null = null
+  private selectedDifficulty: DifficultyTier = DIFFICULTY_TIERS[0]
+  private selectedMap: string = 'forest'
 
   constructor() {
     injectKeyframes()
@@ -74,8 +88,8 @@ export class CharacterSelect {
       display: 'none',
       flexDirection: 'column',
       alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: '250',
+      justifyContent: 'flex-start',
+      zIndex: '999',
       fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
       color: COL_TEXT,
       userSelect: 'none',
@@ -88,7 +102,7 @@ export class CharacterSelect {
       fontWeight: '900',
       color: COL_GOLD,
       textShadow: `0 0 20px ${COL_GOLD}88, 0 2px 8px rgba(0,0,0,0.6)`,
-      marginBottom: '36px',
+      marginBottom: '20px',
       marginTop: '24px',
       letterSpacing: '0.1em',
     }, 'SELECT CHARACTER')
@@ -101,7 +115,7 @@ export class CharacterSelect {
       alignItems: 'stretch',
       justifyContent: 'center',
       flexWrap: 'wrap',
-      padding: '0 24px 24px 24px',
+      padding: '0 24px 16px 24px',
       maxWidth: '1400px',
     })
     this.overlay.appendChild(this.cardContainer)
@@ -109,12 +123,18 @@ export class CharacterSelect {
     document.body.appendChild(this.overlay)
   }
 
-  show(onSelect: (char: CharacterDef) => void): void {
+  show(onSelect: (result: CharacterSelectResult) => void): void {
     this.onSelect = onSelect
     this.visible = true
+    this.selectedDifficulty = DIFFICULTY_TIERS[0]
+    this.selectedMap = 'forest'
 
-    // Clear previous cards
+    // Clear previous content after title
     this.cardContainer.innerHTML = ''
+
+    // Remove previous toggle rows if any
+    const existing = this.overlay.querySelectorAll('.charsel-toggle-row')
+    existing.forEach(e => e.remove())
 
     // Animate overlay in
     this.overlay.style.display = 'flex'
@@ -123,7 +143,25 @@ export class CharacterSelect {
     // Animate title
     this.title.style.animation = 'smash-charsel-title 0.6s ease-out forwards'
 
-    // Build cards
+    // Build toggle rows (difficulty + map) before character cards
+    const toggleContainer = el('div', {
+      display: 'flex',
+      gap: '32px',
+      justifyContent: 'center',
+      flexWrap: 'wrap',
+      marginBottom: '20px',
+      padding: '0 24px',
+    })
+    toggleContainer.classList.add('charsel-toggle-row')
+    this.overlay.insertBefore(toggleContainer, this.cardContainer)
+
+    // Difficulty toggles
+    this.buildDifficultyToggle(toggleContainer)
+
+    // Map toggles
+    this.buildMapToggle(toggleContainer)
+
+    // Build character cards
     CHARACTERS.forEach((char, index) => {
       const card = this.createCard(char, index)
       this.cardContainer.appendChild(card)
@@ -135,13 +173,162 @@ export class CharacterSelect {
     this.onSelect = null
     this.overlay.style.display = 'none'
     this.cardContainer.innerHTML = ''
+    const existing = this.overlay.querySelectorAll('.charsel-toggle-row')
+    existing.forEach(e => e.remove())
   }
 
   destroy(): void {
     this.overlay.remove()
   }
 
-  // ---- Private helpers ----------------------------------------------------
+  // ---- Toggle builders ----------------------------------------------------
+
+  private buildDifficultyToggle(container: HTMLElement): void {
+    const group = el('div', {
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      gap: '6px',
+    })
+
+    const label = el('div', {
+      fontSize: '13px',
+      fontWeight: '700',
+      color: '#888',
+      textTransform: 'uppercase',
+      letterSpacing: '0.1em',
+    }, 'Difficulty')
+    group.appendChild(label)
+
+    const btnRow = el('div', {
+      display: 'flex',
+      gap: '4px',
+      background: '#111122',
+      borderRadius: '8px',
+      padding: '3px',
+    })
+
+    const diffColors = ['#4CAF50', '#FF9800', '#F44336']
+    const buttons: HTMLElement[] = []
+
+    DIFFICULTY_TIERS.forEach((tier, i) => {
+      const btn = el('div', {
+        padding: '6px 14px',
+        fontSize: '12px',
+        fontWeight: '700',
+        borderRadius: '6px',
+        cursor: 'pointer',
+        transition: 'all 0.15s ease',
+        color: i === 0 ? '#fff' : '#888',
+        background: i === 0 ? diffColors[i] + '44' : 'transparent',
+        border: i === 0 ? `1px solid ${diffColors[i]}` : '1px solid transparent',
+      }, tier.name)
+
+      btn.addEventListener('click', () => {
+        this.selectedDifficulty = tier
+        buttons.forEach((b, j) => {
+          const active = j === i
+          b.style.color = active ? '#fff' : '#888'
+          b.style.background = active ? diffColors[j] + '44' : 'transparent'
+          b.style.border = active ? `1px solid ${diffColors[j]}` : '1px solid transparent'
+        })
+      })
+
+      btn.addEventListener('mouseenter', () => {
+        if (this.selectedDifficulty !== tier) {
+          btn.style.color = '#ccc'
+          btn.style.background = '#ffffff11'
+        }
+      })
+      btn.addEventListener('mouseleave', () => {
+        const idx = DIFFICULTY_TIERS.indexOf(this.selectedDifficulty)
+        if (this.selectedDifficulty !== tier) {
+          btn.style.color = '#888'
+          btn.style.background = 'transparent'
+        }
+      })
+
+      buttons.push(btn)
+      btnRow.appendChild(btn)
+    })
+
+    group.appendChild(btnRow)
+    container.appendChild(group)
+  }
+
+  private buildMapToggle(container: HTMLElement): void {
+    const group = el('div', {
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      gap: '6px',
+    })
+
+    const label = el('div', {
+      fontSize: '13px',
+      fontWeight: '700',
+      color: '#888',
+      textTransform: 'uppercase',
+      letterSpacing: '0.1em',
+    }, 'Map')
+    group.appendChild(label)
+
+    const btnRow = el('div', {
+      display: 'flex',
+      gap: '4px',
+      background: '#111122',
+      borderRadius: '8px',
+      padding: '3px',
+    })
+
+    const buttons: HTMLElement[] = []
+
+    MAP_OPTIONS.forEach((map, i) => {
+      const btn = el('div', {
+        padding: '6px 14px',
+        fontSize: '12px',
+        fontWeight: '700',
+        borderRadius: '6px',
+        cursor: 'pointer',
+        transition: 'all 0.15s ease',
+        color: i === 0 ? '#fff' : '#888',
+        background: i === 0 ? map.color + '44' : 'transparent',
+        border: i === 0 ? `1px solid ${map.color}` : '1px solid transparent',
+      }, map.name)
+
+      btn.addEventListener('click', () => {
+        this.selectedMap = map.id
+        buttons.forEach((b, j) => {
+          const active = j === i
+          const c = MAP_OPTIONS[j].color
+          b.style.color = active ? '#fff' : '#888'
+          b.style.background = active ? c + '44' : 'transparent'
+          b.style.border = active ? `1px solid ${c}` : '1px solid transparent'
+        })
+      })
+
+      btn.addEventListener('mouseenter', () => {
+        if (this.selectedMap !== map.id) {
+          btn.style.color = '#ccc'
+          btn.style.background = '#ffffff11'
+        }
+      })
+      btn.addEventListener('mouseleave', () => {
+        if (this.selectedMap !== map.id) {
+          btn.style.color = '#888'
+          btn.style.background = 'transparent'
+        }
+      })
+
+      buttons.push(btn)
+      btnRow.appendChild(btn)
+    })
+
+    group.appendChild(btnRow)
+    container.appendChild(group)
+  }
+
+  // ---- Card builder -------------------------------------------------------
 
   private createCard(char: CharacterDef, index: number): HTMLElement {
     const accentColor = hexToCSS(char.meshColor)
@@ -286,12 +473,27 @@ export class CharacterSelect {
         card.style.boxShadow = '0 4px 20px rgba(0,0,0,0.4)'
       })
 
-      // Click
+      // Click — pass character, difficulty, and map selection
       card.addEventListener('click', () => {
         if (this.onSelect) {
-          this.onSelect(char)
+          this.onSelect({
+            character: char,
+            difficulty: this.selectedDifficulty,
+            mapId: this.selectedMap,
+          })
         }
         this.hide()
+      })
+    } else {
+      // Click the lock icon to unlock the character (dev bypass)
+      icon.style.cursor = 'pointer'
+      icon.title = 'Click to unlock'
+      icon.addEventListener('click', (e) => {
+        e.stopPropagation()
+        char.unlocked = true
+        // Replace this card with an unlocked version
+        const newCard = this.createCard(char, index)
+        card.replaceWith(newCard)
       })
     }
 

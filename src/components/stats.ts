@@ -16,4 +16,11 @@ export const PlayerStats = defineComponent({
   knockbackMult: Types.f32,  // from knockback tome, default 1.0
   projCountBonus: Types.ui8,  // from Quantity Tome, flat bonus to all weapons
   projSpeedMult: Types.f32,   // from Projectile Speed Tome, default 1.0
+  sizeMult: Types.f32,        // from Size Tome, default 1.0
+  durationMult: Types.f32,    // from Duration Tome, default 1.0
+  cursedMult: Types.f32,      // from Cursed Tome, scales difficulty & drops, default 0.0
+  bossDamageMult: Types.f32,  // from Boss Buster item, default 0.0
+  idleDamageMult: Types.f32,  // from Idle Juice item, default 0.0
+  speedDamageMult: Types.f32, // from Speed Demon passive, default 0.0
+  flexTimer: Types.f32,       // Aura Chad passive: time since last hit, 0 = disabled
 })

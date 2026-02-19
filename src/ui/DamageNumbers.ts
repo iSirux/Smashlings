@@ -7,7 +7,9 @@ const COL_WHITE = '#FFFFFF'
 // ---- Config -----------------------------------------------------------------
 const POOL_SIZE = 50
 const LIFETIME = 0.8         // seconds
+const TEXT_LIFETIME = 1.8    // seconds — longer for text labels
 const FLOAT_SPEED = 80       // px/s upward
+const TEXT_FLOAT_SPEED = 40  // px/s — slower for readability
 const SPREAD_X = 20          // random horizontal offset range in px
 
 // ---- Types ------------------------------------------------------------------
@@ -22,6 +24,8 @@ interface DamageEntry {
   age: number
   alive: boolean
   velocityX: number          // px/s horizontal drift
+  lifetime: number           // per-entry lifetime (seconds)
+  floatSpeed: number         // per-entry float speed (px/s)
 }
 
 // ---- Helpers ----------------------------------------------------------------
@@ -64,7 +68,7 @@ export class DamageNumbers {
       width: '100vw',
       height: '100vh',
       pointerEvents: 'none',
-      zIndex: '150',
+      zIndex: '999',
       overflow: 'hidden',
     } satisfies Partial<CSSStyleDeclaration>)
 
@@ -94,6 +98,8 @@ export class DamageNumbers {
         age: 0,
         alive: false,
         velocityX: 0,
+        lifetime: LIFETIME,
+        floatSpeed: FLOAT_SPEED,
       })
     }
 
@@ -136,6 +142,8 @@ export class DamageNumbers {
     entry.age = 0
     entry.alive = true
     entry.velocityX = (Math.random() - 0.5) * SPREAD_X
+    entry.lifetime = LIFETIME
+    entry.floatSpeed = FLOAT_SPEED
 
     const el = entry.element
     el.style.display = 'block'
@@ -166,6 +174,67 @@ export class DamageNumbers {
   }
 
   /**
+   * Spawn arbitrary floating text at a world position (e.g. shrine bonus labels).
+   * Floats upward more slowly and lingers longer than damage numbers.
+   */
+  spawnText(
+    x: number,
+    y: number,
+    z: number,
+    text: string,
+    color: string,
+    camera: THREE.PerspectiveCamera,
+    fontSize = 22,
+  ): void {
+    // Find a dead entry in the pool
+    let entry: DamageEntry | null = null
+    for (let i = 0; i < this.pool.length; i++) {
+      if (!this.pool[i].alive) {
+        entry = this.pool[i]
+        break
+      }
+    }
+
+    // If the pool is exhausted, recycle the oldest entry
+    if (!entry) {
+      let oldest: DamageEntry = this.pool[0]
+      for (let i = 1; i < this.pool.length; i++) {
+        if (this.pool[i].age > oldest.age) {
+          oldest = this.pool[i]
+        }
+      }
+      entry = oldest
+    }
+
+    entry.worldPos.set(x, y, z)
+    entry.age = 0
+    entry.alive = true
+    entry.velocityX = 0
+    entry.lifetime = TEXT_LIFETIME
+    entry.floatSpeed = TEXT_FLOAT_SPEED
+
+    const el = entry.element
+    el.style.display = 'block'
+    el.style.opacity = '1'
+    el.style.fontSize = `${fontSize}px`
+    el.style.color = color
+    el.textContent = text
+
+    // Project to screen and store base position
+    const rect = this.container.getBoundingClientRect()
+    const screen = worldToScreen(entry.worldPos, camera, rect.width, rect.height)
+    entry.baseX = screen.x
+    entry.baseY = screen.y
+
+    if (screen.visible) {
+      el.style.transform = `translate(${screen.x}px, ${screen.y}px) translate(-50%, -50%)`
+    } else {
+      el.style.display = 'none'
+      entry.alive = false
+    }
+  }
+
+  /**
    * Tick all active damage numbers without a camera reference.
    * Numbers float upward from their baked screen-space spawn position.
    * This is the standard approach -- call once per frame.
@@ -177,15 +246,15 @@ export class DamageNumbers {
 
       entry.age += dt
 
-      if (entry.age >= LIFETIME) {
+      if (entry.age >= entry.lifetime) {
         entry.alive = false
         entry.element.style.display = 'none'
         continue
       }
 
-      const t = entry.age / LIFETIME
+      const t = entry.age / entry.lifetime
       const opacity = 1 - t
-      const yOffset = -FLOAT_SPEED * entry.age
+      const yOffset = -entry.floatSpeed * entry.age
       const xOffset = entry.velocityX * entry.age
       const scale = 1 + (1 - t) * 0.2
 

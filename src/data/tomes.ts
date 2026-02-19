@@ -26,4 +26,5 @@ export const TOMES: TomeDef[] = [
   { id: 'size', name: 'Size Tome', description: '+10% Weapon Size', stat: 'size', perLevel: 0.10, isPercent: true },
   { id: 'projSpeed', name: 'Projectile Speed Tome', description: '+8% Projectile Speed', stat: 'projSpeed', perLevel: 0.08, isPercent: true },
   { id: 'goldGain', name: 'Gold Tome', description: '+7% Gold Gain', stat: 'goldGain', perLevel: 0.07, isPercent: true },
+  { id: 'pickupRange', name: 'Magnet Tome', description: '+15% Pickup Range', stat: 'pickupRange', perLevel: 0.15, isPercent: true },
 ]

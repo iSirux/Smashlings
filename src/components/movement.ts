@@ -19,4 +19,8 @@ export const AIFollow = defineComponent({
   /** Entity id of the target to follow. */
   targetEid: Types.eid,
   speed: Types.f32,
+  /** 0=direct(default), 1=orbit, 2=keepDistance */
+  behavior: Types.ui8,
+  preferredDist: Types.f32,
+  orbitAngle: Types.f32,
 })

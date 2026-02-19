@@ -1,6 +1,6 @@
 import * as THREE from 'three'
-import { generateForestTerrain, getTerrainHeight, TerrainConfig } from '../world/MapGenerator'
-import { createForestFog } from '../world/Skybox'
+import { generateForestTerrain, generateDesertTerrain, getTerrainHeight, TerrainConfig } from '../world/MapGenerator'
+import { createForestFog, createDesertFog, createForestSky, createDesertSky } from '../world/Skybox'
 
 /**
  * Manages the Three.js scene, camera, renderer, and entity-to-mesh mappings.
@@ -85,6 +85,38 @@ class SceneManagerClass {
 
     // ── Window resize handler ──────────────────────────────────────────
     window.addEventListener('resize', this.onResize)
+  }
+
+  /**
+   * Switch the terrain, sky, and fog to match the selected map.
+   */
+  setMap(mapId: string): void {
+    // Remove old terrain
+    if (this.terrain) {
+      this.scene.remove(this.terrain)
+      this.terrain.geometry.dispose()
+      ;(this.terrain.material as THREE.Material).dispose()
+    }
+
+    const terrainConfig: TerrainConfig = {
+      width: 500,
+      depth: 500,
+      segments: 128,
+      maxHeight: 3,
+      color: mapId === 'desert' ? 0xD2B48C : 0x2E7D32,
+    }
+
+    if (mapId === 'desert') {
+      this.terrain = generateDesertTerrain(terrainConfig)
+      this.scene.background = createDesertSky()
+      this.scene.fog = createDesertFog()
+    } else {
+      this.terrain = generateForestTerrain(terrainConfig)
+      this.scene.background = createForestSky()
+      this.scene.fog = createForestFog()
+    }
+
+    this.scene.add(this.terrain)
   }
 
   /**

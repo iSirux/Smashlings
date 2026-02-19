@@ -79,7 +79,7 @@ export class QuestLog {
       flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
-      zIndex: '250',
+      zIndex: '999',
       fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
       color: COL_TEXT,
       userSelect: 'none',

@@ -1,5 +1,7 @@
 import { createWorld, IWorld } from 'bitecs'
 import { INITIAL_WEAPON_SLOTS, INITIAL_TOME_SLOTS } from './data/balance'
+import type { DifficultyTier } from './data/difficulty'
+import { DIFFICULTY_TIERS } from './data/difficulty'
 
 export interface WeaponSlotData {
   eid: number
@@ -43,6 +45,10 @@ export interface GameWorld extends IWorld {
   /** Items collected during the current run (item ids). */
   items: string[]
   paused: boolean
+  /** Selected difficulty tier. */
+  difficulty: DifficultyTier
+  /** Selected map id ('forest' | 'desert'). */
+  mapId: string
 }
 
 /**
@@ -76,6 +82,8 @@ export function createGameWorld(): GameWorld {
 
   world.items = []
   world.paused = false
+  world.difficulty = DIFFICULTY_TIERS[0] // Normal
+  world.mapId = 'forest'
 
   return world
 }

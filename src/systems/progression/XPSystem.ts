@@ -2,21 +2,17 @@ import { defineQuery, addComponent, hasComponent } from 'bitecs'
 import { IsPickup, IsXPGem, DestroyFlag } from '../../components/tags'
 import { Transform, Velocity } from '../../components/spatial'
 import { XPValue } from '../../components/lifecycle'
+import { PlayerStats } from '../../components/stats'
 import { distanceSq } from '../../utils/math'
 import { eventBus } from '../../core/EventBus'
 import {
-  XP_MAGNET_RANGE,
   XP_MAGNET_SPEED,
-  PICKUP_RANGE,
   BASE_XP,
   XP_SCALING,
 } from '../../data/balance'
 import type { GameWorld } from '../../world'
 
 const xpGemQuery = defineQuery([IsPickup, IsXPGem, Transform, XPValue])
-
-const MAGNET_RANGE_SQ = XP_MAGNET_RANGE * XP_MAGNET_RANGE
-const PICKUP_RANGE_SQ = PICKUP_RANGE * PICKUP_RANGE
 
 /**
  * Handles XP gem attraction, collection, and player level-up logic.
@@ -27,6 +23,12 @@ export function xpSystem(world: GameWorld, dt: number): void {
 
   const plx = Transform.x[playerEid]
   const plz = Transform.z[playerEid]
+
+  const pickupRange = PlayerStats.pickupRange[playerEid]
+  const pickupRangeSq = pickupRange * pickupRange
+  // Magnet range is always at least pickup range (pull starts outside collection)
+  const magnetRange = pickupRange + 3
+  const magnetRangeSq = magnetRange * magnetRange
 
   const gems = xpGemQuery(world)
 
@@ -48,8 +50,12 @@ export function xpSystem(world: GameWorld, dt: number): void {
     const dSq = distanceSq(plx, plz, gx, gz)
 
     // Collection check (innermost range first for efficiency)
-    if (dSq < PICKUP_RANGE_SQ) {
-      const amount = XPValue.amount[eid]
+    if (dSq < pickupRangeSq) {
+      const baseAmount = XPValue.amount[eid]
+      const xpGain = PlayerStats.xpGain[playerEid] || 1.0
+      const diffXpMult = world.difficulty.xpMult
+      const cursed = PlayerStats.cursedMult[playerEid] || 0
+      const amount = baseAmount * xpGain * diffXpMult * (1 + cursed)
       world.player.xp += amount
 
       addComponent(world, DestroyFlag, eid)
@@ -77,7 +83,7 @@ export function xpSystem(world: GameWorld, dt: number): void {
     }
 
     // Magnet pull check
-    if (dSq < MAGNET_RANGE_SQ && dSq > 0.0001) {
+    if (dSq < magnetRangeSq && dSq > 0.0001) {
       const dist = Math.sqrt(dSq)
       const nx = (plx - gx) / dist
       const nz = (plz - gz) / dist

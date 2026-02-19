@@ -43,10 +43,12 @@ export function enemySpawnerSystem(world: GameWorld, dt: number): void {
   const elapsed = world.time.elapsed
 
   // Spawn interval decreases over time: starts at BASE and decays toward MIN
+  // Difficulty multiplier: higher spawnRateMult = more enemies = shorter intervals
+  const diffSpawnMult = world.difficulty.spawnRateMult
   const decayFactor = 1 - Math.min(elapsed / 600, 0.8) // over 10 min, reduce to 20% of base
   const spawnInterval = Math.max(
     MIN_SPAWN_INTERVAL,
-    BASE_SPAWN_INTERVAL * decayFactor,
+    (BASE_SPAWN_INTERVAL / diffSpawnMult) * decayFactor,
   )
 
   spawnTimer += dt

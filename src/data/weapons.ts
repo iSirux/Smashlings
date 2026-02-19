@@ -165,11 +165,11 @@ export const WEAPONS: Record<string, WeaponDef> = {
     damage: 6,
     cooldown: 1.5,
     range: 15,
-    pattern: 1, // forward
+    pattern: 0, // nearest
     knockback: 1.5,
     projectileCount: 1,
     projectileSpeed: 15,
-    projectileLifetime: 1.5,
+    projectileLifetime: 2.0,
     projectileSize: 0.4,
     meshColor: 0x76FF03,
     weaponIndex: 9,

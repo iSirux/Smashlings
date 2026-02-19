@@ -38,3 +38,50 @@ export const Invincible = defineComponent({
   /** Seconds of invincibility remaining. */
   timer: Types.f32,
 })
+
+export const ChainLightning = defineComponent({
+  chainsRemaining: Types.ui8,
+  chainRange: Types.f32,
+})
+
+/** Enemy melee attack state machine: 0=idle, 1=windup, 2=lunge, 3=cooldown */
+export const EnemyAttack = defineComponent({
+  state: Types.ui8,
+  timer: Types.f32,
+  /** Locked lunge direction (set at windup start) */
+  dirX: Types.f32,
+  dirZ: Types.f32,
+})
+
+export const EnemyRangedAttack = defineComponent({
+  cooldown: Types.f32,
+  cooldownTimer: Types.f32,
+  damage: Types.f32,
+  projectileSpeed: Types.f32,
+  /** 0=straight, 1=homing, 2=aoe_cloud */
+  projectileType: Types.ui8,
+  minRange: Types.f32,
+})
+
+export const EnemyHoming = defineComponent({
+  turnRate: Types.f32,
+})
+
+export const BossPhase = defineComponent({
+  phase: Types.ui8,
+  attackTimer: Types.f32,
+  patternTimer: Types.f32,
+  patternIndex: Types.ui8,
+})
+
+export const BoomerangReturn = defineComponent({
+  elapsed: Types.f32,
+  totalLife: Types.f32,
+  /** Forward direction (toward target at spawn) */
+  fwdX: Types.f32,
+  fwdZ: Types.f32,
+  /** Perpendicular direction (for arc curve) */
+  perpX: Types.f32,
+  perpZ: Types.f32,
+  speed: Types.f32,
+})

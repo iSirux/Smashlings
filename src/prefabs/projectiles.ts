@@ -1,10 +1,12 @@
 import * as THREE from 'three'
-import { addEntity, addComponent } from 'bitecs'
+import { addEntity, addComponent, hasComponent } from 'bitecs'
 import { Transform, Velocity, initTransform } from '../components/spatial'
 import { IsProjectile } from '../components/tags'
 import { DamageOnContact } from '../components/combat'
+import { PlayerStats } from '../components/stats'
 import { Lifetime } from '../components/lifecycle'
 import { sceneManager } from '../core/SceneManager'
+import { ChainLightning, BoomerangReturn } from '../components/combat'
 import type { GameWorld } from '../world'
 
 // ── Shared geometry pools (avoid re-creating per projectile) ──────────────
@@ -24,8 +26,20 @@ function setupProjectile(
   damage: number, knockback: number,
   pierce: number, lifetime: number,
 ): void {
+  // Apply player tome multipliers
+  const playerEid = world.player.eid
+  let sizeMult = 1.0
+  let durationMult = 1.0
+  if (playerEid >= 0 && hasComponent(world, PlayerStats, playerEid)) {
+    sizeMult = PlayerStats.sizeMult[playerEid] || 1.0
+    durationMult = PlayerStats.durationMult[playerEid] || 1.0
+  }
+
   addComponent(world, Transform, eid)
   initTransform(eid, x, y, z)
+  Transform.scaleX[eid] = sizeMult
+  Transform.scaleY[eid] = sizeMult
+  Transform.scaleZ[eid] = sizeMult
 
   addComponent(world, Velocity, eid)
   Velocity.x[eid] = vx
@@ -41,7 +55,7 @@ function setupProjectile(
   DamageOnContact.hitCount[eid] = 0
 
   addComponent(world, Lifetime, eid)
-  Lifetime.remaining[eid] = lifetime
+  Lifetime.remaining[eid] = lifetime * durationMult
 }
 
 // ── Sword Slash ──────────────────────────────────────────────────────────
@@ -189,13 +203,18 @@ export function createLightningBolt(
   x: number, y: number, z: number,
   dirX: number, dirZ: number,
   damage: number, knockback: number,
+  chainsRemaining = 3,
 ): number {
   const eid = addEntity(world)
   const speed = 20
 
   setupProjectile(world, eid, x, y, z,
     dirX * speed, 0, dirZ * speed,
-    damage, knockback, 3, 1.0)
+    damage, knockback, 1, 1.0)
+
+  addComponent(world, ChainLightning, eid)
+  ChainLightning.chainsRemaining[eid] = chainsRemaining
+  ChainLightning.chainRange[eid] = 8.0
 
   const mesh = new THREE.Mesh(medSphereGeo, lightningMat)
   mesh.position.set(x, y, z)
@@ -267,7 +286,21 @@ export function createBoomerangProjectile(
 
   setupProjectile(world, eid, x, y, z,
     dirX * speed, 0, dirZ * speed,
-    damage, knockback, 5, 1.5)
+    damage, knockback, 255, 2.0)
+
+  // Perpendicular direction (rotate 90 degrees, random left/right)
+  const sign = Math.random() < 0.5 ? 1 : -1
+  const perpX = -dirZ * sign
+  const perpZ = dirX * sign
+
+  addComponent(world, BoomerangReturn, eid)
+  BoomerangReturn.elapsed[eid] = 0
+  BoomerangReturn.totalLife[eid] = 2.0
+  BoomerangReturn.fwdX[eid] = dirX
+  BoomerangReturn.fwdZ[eid] = dirZ
+  BoomerangReturn.perpX[eid] = perpX
+  BoomerangReturn.perpZ[eid] = perpZ
+  BoomerangReturn.speed[eid] = speed
 
   const mesh = new THREE.Mesh(boomerangGeo, boomerangMat)
   mesh.position.set(x, y, z)
@@ -291,13 +324,23 @@ export function createAuraPulse(
 ): number {
   const eid = addEntity(world)
 
+  // sizeMult is applied to transform scale by setupProjectile,
+  // but aura geometry is based on weapon range — also scale it
+  const playerEid = world.player.eid
+  const sizeMult = (playerEid >= 0 && hasComponent(world, PlayerStats, playerEid))
+    ? (PlayerStats.sizeMult[playerEid] || 1.0) : 1.0
+
   setupProjectile(world, eid, x, y, z,
     0, 0, 0,
     damage, 0.5, 255, 0.3)
 
-  const geo = new THREE.SphereGeometry(size, 8, 8)
+  const geo = new THREE.SphereGeometry(size * sizeMult, 8, 8)
   const mesh = new THREE.Mesh(geo, auraMat)
   mesh.position.set(x, y, z)
+  // Reset scale to 1 since size is baked into geometry
+  Transform.scaleX[eid] = 1
+  Transform.scaleY[eid] = 1
+  Transform.scaleZ[eid] = 1
   sceneManager.addMesh(eid, mesh)
 
   return eid
@@ -318,13 +361,20 @@ export function createFrostPulse(
 ): number {
   const eid = addEntity(world)
 
+  const playerEid = world.player.eid
+  const sizeMult = (playerEid >= 0 && hasComponent(world, PlayerStats, playerEid))
+    ? (PlayerStats.sizeMult[playerEid] || 1.0) : 1.0
+
   setupProjectile(world, eid, x, y, z,
     0, 0, 0,
     damage, 1.0, 255, 0.5)
 
-  const geo = new THREE.SphereGeometry(size, 8, 8)
+  const geo = new THREE.SphereGeometry(size * sizeMult, 8, 8)
   const mesh = new THREE.Mesh(geo, frostMat)
   mesh.position.set(x, y, z)
+  Transform.scaleX[eid] = 1
+  Transform.scaleY[eid] = 1
+  Transform.scaleZ[eid] = 1
   sceneManager.addMesh(eid, mesh)
 
   return eid
@@ -343,12 +393,12 @@ export function createDiceProjectile(
   const eid = addEntity(world)
   const speed = 18
 
-  // Dice does random damage 1-6 per hit
-  const randomDamage = Math.floor(Math.random() * 6) + 1
+  // Dice: multiply base damage by a d6 roll (1x–6x variance)
+  const roll = Math.floor(Math.random() * 6) + 1
 
   setupProjectile(world, eid, x, y, z,
     dirX * speed, 0, dirZ * speed,
-    randomDamage, knockback, 1, 1.5)
+    damage * roll, knockback, 1, 1.5)
 
   const mesh = new THREE.Mesh(medSphereGeo, diceMat)
   mesh.position.set(x, y, z)

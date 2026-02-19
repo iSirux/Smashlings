@@ -131,7 +131,7 @@ export class Shop {
       flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'flex-start',
-      zIndex: '260',
+      zIndex: '999',
       fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
       color: COL_TEXT,
       userSelect: 'none',
